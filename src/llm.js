@@ -219,10 +219,11 @@ async function runOpenAI({ history, model, sink, env, systemText }) {
  * Huvudingang. history = [{role, content}]. sink(event) far {type:'delta'|'status'|...}.
  * Returnerar { answer, model, tools }.
  */
-export async function runChat({ history, provider, model, sink, env = process.env, userName = 'VD' }) {
+export async function runChat({ history, provider, model, sink, env = process.env, userName = 'VD', firstTime = false }) {
   const systemText = buildSystem({
     memoryDigest: getMemoryDigest(),
     userName,
+    firstTime,
     hasConsoleData: hasConsole(env),
     hasWeb: webWanted(env) && hasAnthropic(env) && !webUnavailable,
   });

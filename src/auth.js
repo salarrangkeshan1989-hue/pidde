@@ -19,8 +19,18 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-insecure-secret-change
 const SESSION_TTL = 1000 * 60 * 60 * 12; // 12 timmar
 const ADMIN_USER = process.env.PIDDE_USER || 'vd@senzum.com';
 const ADMIN_PASSWORD = process.env.PIDDE_PASSWORD || 'byt-mig';
+const ADMIN_NAME = process.env.PIDDE_NAME || ''; // valfritt: annars harleds namnet ur mejlen
 
 const str = (v) => (v == null ? '' : String(v));
+
+// Harled ett trevligt visningsnamn ur mejladressen: "therese.franzen@..." -> "Therese Franzen".
+// Sa Pidde kan halsa och tilltala med namn utan att man behover satta nagot extra.
+function friendlyName(email) {
+  const local = str(email).split('@')[0];
+  const tokens = local.split(/[._-]+/).filter(Boolean)
+    .map((t) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase());
+  return tokens.join(' ');
+}
 
 /* ── scrypt (async) ──────────────────────────────────────────────────────── */
 const scryptAsync = (password, salt) => new Promise((resolve, reject) =>
@@ -49,16 +59,23 @@ export async function verifyPassword(user, password) {
 let users = [];
 export function initAuth() {
   users = readJSON(USERS_FILE, null) || [];
-  const exists = users.find((u) => u.username.toLowerCase() === ADMIN_USER.toLowerCase());
-  if (!exists) {
+  const displayName = ADMIN_NAME || friendlyName(ADMIN_USER) || 'VD';
+  let cur = users.find((u) => u.username.toLowerCase() === ADMIN_USER.toLowerCase());
+  if (!cur) {
     // Fresh store, eller PIDDE_USER andrades: droppa ett foraldrat auto-seedat konto
     // och seeda det konfigurerade, sa env faktiskt tar effekt.
     if (ADMIN_USER.toLowerCase() !== 'vd@senzum.com') {
       users = users.filter((u) => u.username.toLowerCase() !== 'vd@senzum.com');
     }
-    users.push(makeUser(ADMIN_USER, ADMIN_PASSWORD, 'VD', 'vd'));
+    cur = makeUser(ADMIN_USER, ADMIN_PASSWORD, displayName, 'vd');
+    users.push(cur);
     writeJSONAtomic(USERS_FILE, users);
-    console.log('[auth] seedade inloggning "' + ADMIN_USER + '"');
+    console.log('[auth] seedade inloggning "' + ADMIN_USER + '" (' + displayName + ')');
+  } else if (cur.name !== displayName) {
+    // Synka visningsnamnet om det seedades med ett annat namn tidigare (t.ex. "VD").
+    cur.name = displayName;
+    writeJSONAtomic(USERS_FILE, users);
+    console.log('[auth] uppdaterade visningsnamn till "' + displayName + '"');
   }
   if (process.env.NODE_ENV === 'production' &&
       (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'dev-insecure-secret-change-me')) {

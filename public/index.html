@@ -390,7 +390,10 @@
 
   /* ── render ── */
   function greeting(){
-    const h=new Date().getHours(); const name=(state.user&&(state.user.name||state.user.username)||'').split('@')[0];
+    const h=new Date().getHours();
+    const raw=(state.user&&(state.user.name||state.user.username)||'');
+    const first=raw.split('@')[0].split(/[\s._-]+/).filter(Boolean)[0]||'';
+    const name=first?first.charAt(0).toUpperCase()+first.slice(1):'';
     const g = h<10?'God morgon':h<13?'God förmiddag':h<18?'God eftermiddag':'God kväll';
     return {g: g+(name&&name!=='VD'?', '+name:''), sub:'Vad brottas vi med idag?'};
   }

@@ -20,7 +20,7 @@ import {
 } from './auth.js';
 import {
   nowISO, listThreads, getThread, createThread, appendThreadMessages, renameThread, deleteThread,
-  getMemory, setProfile, addFact, deleteFact,
+  getMemory, setProfile, addFact, deleteFact, isOnboarded, markOnboarded,
 } from './store.js';
 import { listDocs, addDoc, deleteDoc, extractText } from './knowledge.js';
 import { runChat, providersStatus } from './llm.js';
@@ -57,6 +57,11 @@ function titleFrom(text) {
   const first = str(text).split('\n')[0].trim();
   if (first.length <= 52) return first;
   return first.slice(0, 52).replace(/\s+\S*$/, '') + '...';
+}
+// Fornamn for tilltal: "Therese Franzen"/"therese.franzen@..." -> "Therese".
+function firstName(v) {
+  const f = str(v).split('@')[0].split(/[\s._-]+/).filter(Boolean)[0] || '';
+  return f ? f.charAt(0).toUpperCase() + f.slice(1) : 'VD';
 }
 
 /* ── auth ────────────────────────────────────────────────────────────────── */
@@ -159,13 +164,15 @@ app.post('/api/chat', requireAuth, async (req, res) => {
 
   send({ type: 'thread', id: thread.id, title: thread.title });
   try {
-    const { answer, model, tools } = await runChat({ history, provider: str(b.provider), model: str(b.model), sink: send, env: process.env, userName: me.name || 'VD' });
+    const firstTime = !isOnboarded(); // allra forsta samtalet -> Pidde presenterar sig
+    const { answer, model, tools } = await runChat({ history, provider: str(b.provider), model: str(b.model), sink: send, env: process.env, userName: firstName(me.name || me.username), firstTime });
     // Append bara det nya utbytet (las-modifiera-skriv mot aktuell disk), sa parallella
     // sandningar mot samma trad inte skriver over varandra.
     appendThreadMessages(thread.id, [
       { role: 'user', content: text, ts: nowISO() },
       { role: 'assistant', content: answer, ts: nowISO(), model, tools },
     ], isFirst ? titleFrom(text) : undefined);
+    if (firstTime) markOnboarded();
     const saved = getThread(thread.id);
     send({ type: 'done', model, tools, title: saved ? saved.title : thread.title, threadId: thread.id });
   } catch (e) {

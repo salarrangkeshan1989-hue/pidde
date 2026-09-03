@@ -120,9 +120,13 @@ export function deleteThread(id) {
 // profile redigeras av anvandaren; facts skrivs mest av Pidde sjalv (save_memory).
 export function getMemory() {
   const m = readJSON(MEMORY_FILE, null) || {};
-  return { profile: str(m.profile), facts: asArr(m.facts), updatedAt: m.updatedAt || null };
+  return { profile: str(m.profile), facts: asArr(m.facts), updatedAt: m.updatedAt || null, onboarded: !!m.onboarded };
 }
 function saveMemory(m) { writeJSONAtomic(MEMORY_FILE, { ...m, updatedAt: nowISO() }); }
+
+/** Har Pidde redan halsat forsta gangen? Satts efter det allra forsta svaret. */
+export function isOnboarded() { return getMemory().onboarded; }
+export function markOnboarded() { const m = getMemory(); if (!m.onboarded) saveMemory({ ...m, onboarded: true }); }
 
 export function setProfile(text) {
   const m = getMemory();
