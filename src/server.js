@@ -79,7 +79,7 @@ app.post('/api/logout', (req, res) => { res.setHeader('Set-Cookie', clearCookie(
 app.get('/api/me', (req, res) => { const u = currentUser(req); return u ? res.json({ user: pubUser(u) }) : res.status(401).json({ error: 'unauth' }); });
 
 app.get('/api/config', requireAuth, (req, res) => {
-  res.json({ user: pubUser(req.user), providers: providersStatus(process.env), consoleConfigured: hasConsole(process.env) });
+  res.json({ user: pubUser(req.user), providers: providersStatus(process.env), consoleConfigured: hasConsole(process.env), onboarded: getMemory().onboarded });
 });
 app.get('/api/console/health', requireAuth, async (req, res) => { res.json(await consoleHealth(process.env)); });
 

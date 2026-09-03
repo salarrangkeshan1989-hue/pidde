@@ -17,9 +17,14 @@ import { filePath, readJSON, writeJSONAtomic, rid } from './store.js';
 const USERS_FILE = filePath('users.json');
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-insecure-secret-change-me';
 const SESSION_TTL = 1000 * 60 * 60 * 12; // 12 timmar
-const ADMIN_USER = process.env.PIDDE_USER || 'vd@senzum.com';
-const ADMIN_PASSWORD = process.env.PIDDE_PASSWORD || 'byt-mig';
-const ADMIN_NAME = process.env.PIDDE_NAME || ''; // valfritt: annars harleds namnet ur mejlen
+// Trimma env-varden: ett mellanslag eller radbrytning som foljer med vid inklistring
+// pa Railway skulle annars bli en del av losenordet/mejlen och gora inloggning omojlig.
+const ADMIN_USER = (process.env.PIDDE_USER || 'vd@senzum.com').trim();
+const ADMIN_PASSWORD = (process.env.PIDDE_PASSWORD || 'byt-mig').trim();
+const ADMIN_NAME = (process.env.PIDDE_NAME || '').trim(); // valfritt: annars harleds namnet ur mejlen
+// PIDDE_RESEED=1 tvingar om losenord + namn for det konfigurerade kontot vid boot.
+// Anvands nar PIDDE_PASSWORD andrats efter att kontot redan seedats. Ta bort efterat.
+const RESEED = /^(1|true|yes|on)$/i.test((process.env.PIDDE_RESEED || '').trim());
 
 const str = (v) => (v == null ? '' : String(v));
 
@@ -71,6 +76,15 @@ export function initAuth() {
     users.push(cur);
     writeJSONAtomic(USERS_FILE, users);
     console.log('[auth] seedade inloggning "' + ADMIN_USER + '" (' + displayName + ')');
+  } else if (RESEED) {
+    // Kontot finns redan men PIDDE_PASSWORD har andrats: tvinga om losenord + namn.
+    const salt = crypto.randomBytes(16).toString('hex');
+    cur.salt = salt;
+    cur.hash = crypto.scryptSync(ADMIN_PASSWORD, salt, 64).toString('hex');
+    cur.name = displayName;
+    cur.tokenVersion = (cur.tokenVersion || 0) + 1; // logga ut ev. gamla sessioner
+    writeJSONAtomic(USERS_FILE, users);
+    console.log('[auth] PIDDE_RESEED aktiv: losenord och namn aterstallda for "' + ADMIN_USER + '". Ta bort PIDDE_RESEED efterat.');
   } else if (cur.name !== displayName) {
     // Synka visningsnamnet om det seedades med ett annat namn tidigare (t.ex. "VD").
     cur.name = displayName;

@@ -296,7 +296,14 @@
   const el = (t, c) => { const e=document.createElement(t); if(c)e.className=c; return e; };
   // Escapar aven fnuttar sa AI-text aldrig kan bryta ut ur ett href-attribut i md():s lankrenderare.
   const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  const state = { user:null, providers:null, consoleConfigured:false, provider:'claude', threadId:null, streaming:false };
+  const state = { user:null, providers:null, consoleConfigured:false, provider:'claude', threadId:null, streaming:false, onboarded:true };
+  function userFirstName(){
+    const raw=(state.user&&(state.user.name||state.user.username)||'');
+    const first=raw.split('@')[0].split(/[\s._-]+/).filter(Boolean)[0]||'';
+    return first?first.charAt(0).toUpperCase()+first.slice(1):'';
+  }
+  // Piddes fasta forsta-halsning (visas bara allra forsta gangen, styrt av onboarded).
+  const WELCOME = name => `Hej ${name}! Kul att du hör av dig.\n\nJag är Pidde, din personliga operations-copilot här på Senzum. Tänk på mig som en kollega som lever och andas det här med outsourcad kundtjänst: SLA, kötider, bemanning, marginaler, avtal, kvalitet, hela racet. Det här är första gången vi kör igång tillsammans, så jag kan ännu inte allt om dig och hur du vill jobba, men ju mer vi nöter tillsammans desto vassare och mer träffsäkra blir mina råd. Jag minns det som är viktigt framåt: mål, pågående affärer, beslut, sånt du bryr dig om.\n\nSå, vad har du på hjärtat idag?`;
 
   /* ── safe markdown ── */
   function md(src){
@@ -337,7 +344,7 @@
   async function init(){
     let me; try{ me = await jget('/api/me'); }catch{ return; }
     state.user = me.user;
-    try{ const cfg = await jget('/api/config'); state.providers=cfg.providers; state.consoleConfigured=cfg.consoleConfigured;
+    try{ const cfg = await jget('/api/config'); state.providers=cfg.providers; state.consoleConfigured=cfg.consoleConfigured; state.onboarded=cfg.onboarded!==false;
       if(cfg.providers.defaultProvider) state.provider=cfg.providers.defaultProvider; }catch{}
     $('#whoName').textContent = state.user.name || state.user.username;
     setupModelSeg();
@@ -391,22 +398,27 @@
   /* ── render ── */
   function greeting(){
     const h=new Date().getHours();
-    const raw=(state.user&&(state.user.name||state.user.username)||'');
-    const first=raw.split('@')[0].split(/[\s._-]+/).filter(Boolean)[0]||'';
-    const name=first?first.charAt(0).toUpperCase()+first.slice(1):'';
+    const name=userFirstName();
     const g = h<10?'God morgon':h<13?'God förmiddag':h<18?'God eftermiddag':'God kväll';
     return {g: g+(name&&name!=='VD'?', '+name:''), sub:'Vad brottas vi med idag?'};
   }
+  const SUGGS=['Ge mig dagens läge','Var tappar vi marginal just nu?','Hur ligger bemanningen mot volymen?','Hjälp mig tänka kring ett personalärende'];
+  function makeChips(){ const chips=el('div','chips'); for(const s of SUGGS){ const b=el('button','sugg'); b.textContent=s; b.onclick=()=>{ $('#input').value=s; send(); }; chips.appendChild(b); } return chips; }
   function renderEmpty(){
     state.threadId=null; $('#topTitle').textContent='Pidde';
     const chat=$('#chat'); chat.innerHTML='';
+    if(!state.onboarded){
+      // Allra forsta besoket: Pidde halsar med sin fasta, varma presentation.
+      const wrap=el('div','wrap'); wrap.style.paddingTop='10px';
+      wrap.appendChild(piddeMsg(md(WELCOME(userFirstName()||'där'))));
+      const chips=makeChips(); chips.style.cssText='margin-top:4px;justify-content:flex-start;padding-left:42px';
+      wrap.appendChild(chips); chat.appendChild(wrap);
+      return;
+    }
     const box=el('div','empty');
     const {g,sub}=greeting();
     box.innerHTML='<div class="orb anim"></div><div class="greet">'+esc(g)+'<small>'+esc(sub)+'</small></div>';
-    const chips=el('div','chips');
-    const suggs=['Ge mig dagens läge','Var tappar vi marginal just nu?','Hur ligger bemanningen mot volymen?','Hjälp mig tänka kring ett personalärende'];
-    for(const s of suggs){ const b=el('button','sugg'); b.textContent=s; b.onclick=()=>{ $('#input').value=s; send(); }; chips.appendChild(b); }
-    box.appendChild(chips); chat.appendChild(box);
+    box.appendChild(makeChips()); chat.appendChild(box);
   }
   function userMsg(text){ const m=el('div','msg user'); const b=el('div','bubble'); b.textContent=text; m.appendChild(b); return m; }
   function piddeMsg(html){
@@ -420,6 +432,7 @@
     if(state.streaming) return;
     const inp=$('#input'); const text=inp.value.trim(); if(!text) return;
     inp.value=''; autogrow();
+    const chipsLeft=$('#chat .chips'); if(chipsLeft) chipsLeft.remove(); // dolj startforslag nar samtalet borjar
     // switch from empty state to a wrap if needed
     let wrap=$('#chat .wrap');
     if(!wrap){ $('#chat').innerHTML=''; wrap=el('div','wrap'); $('#chat').appendChild(wrap); }
@@ -448,7 +461,7 @@
           if(ev.type==='thread'){ if(ev.id) state.threadId=ev.id; }
           else if(ev.type==='status'){ status.innerHTML='<span class="dot warn" style="animation:breathe 1.4s infinite"></span>'+esc(ev.text); status.style.display='flex'; scrollDown(); }
           else if(ev.type==='delta'){ acc+=ev.text; status.style.display='none'; setContent(); scrollDown(); }
-          else if(ev.type==='done'){ content.innerHTML=md(acc); status.style.display='none';
+          else if(ev.type==='done'){ content.innerHTML=md(acc); status.style.display='none'; state.onboarded=true;
             if(ev.title) $('#topTitle').textContent=ev.title; loadThreads(); }
           else if(ev.type==='error'){ b.classList.add('err-bubble'); content.innerHTML=md(acc); status.style.display='none';
             const e=el('div'); e.style.marginTop=acc?'8px':'0'; e.textContent='⚠ '+(ev.message||ev.text||'Nagot gick fel.'); content.appendChild(e); }
