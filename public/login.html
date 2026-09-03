@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Pidde</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#f4f1ea; --bg2:#efe9dd; --card:#fffdf8; --ink:#20232a; --muted:#6b6f78;
+    --line:#e6e0d3; --blue:#1e78c8; --blue-deep:#155a99; --ring:rgba(30,120,200,.28);
+    --accent:#e9873f; --shadow:0 20px 60px -24px rgba(40,44,54,.4);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#15161a; --bg2:#101115; --card:#1d1f25; --ink:#f2efe8; --muted:#9aa0ab;
+      --line:#2c2f37; --blue:#5aa9ea; --blue-deep:#3f86c9; --ring:rgba(90,169,234,.32);
+      --accent:#e6944f; --shadow:0 24px 70px -28px rgba(0,0,0,.7); }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);
+    background:radial-gradient(1200px 800px at 15% -10%,var(--bg2),var(--bg));
+    display:flex;align-items:center;justify-content:center;padding:24px;-webkit-font-smoothing:antialiased}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);
+    width:100%;max-width:400px;padding:40px 34px 30px}
+  .brand{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;margin-bottom:26px}
+  .orb{width:76px;height:76px;border-radius:50%;position:relative;
+    background:radial-gradient(circle at 32% 30%,#8fd0ff 0%,var(--blue) 42%,var(--blue-deep) 100%);
+    box-shadow:0 0 0 8px var(--ring),0 14px 34px -10px var(--blue-deep);animation:breathe 5.5s ease-in-out infinite}
+  .orb::after{content:"";position:absolute;inset:0;border-radius:50%;
+    background:radial-gradient(circle at 68% 74%,rgba(255,255,255,.5),transparent 45%);mix-blend-mode:screen;
+    animation:shimmer 7s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+  @keyframes shimmer{0%,100%{opacity:.55;transform:rotate(0)}50%{opacity:.9;transform:rotate(12deg)}}
+  h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:30px;margin:0;letter-spacing:.2px}
+  .tag{color:var(--muted);font-size:14px;margin-top:-2px}
+  label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin:0 0 6px 2px}
+  .field{margin-bottom:16px}
+  input{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);
+    color:var(--ink);font-size:15px;font-family:inherit;transition:border-color .15s,box-shadow .15s}
+  input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 4px var(--ring)}
+  button{width:100%;padding:13px;border:0;border-radius:12px;background:var(--blue);color:#fff;font-size:15px;
+    font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s,transform .05s;margin-top:6px}
+  button:hover{background:var(--blue-deep)}
+  button:active{transform:translateY(1px)}
+  button:disabled{opacity:.6;cursor:default}
+  .err{background:rgba(200,60,60,.1);color:#c0392b;border:1px solid rgba(200,60,60,.25);border-radius:10px;
+    padding:10px 12px;font-size:13.5px;margin-bottom:14px;display:none}
+  @media (prefers-color-scheme:dark){.err{color:#ff9b8f}}
+  .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:20px}
+</style>
+</head>
+<body>
+  <form class="card" id="form" autocomplete="on">
+    <div class="brand">
+      <div class="orb"></div>
+      <div>
+        <h1>Pidde</h1>
+        <div class="tag">Din operations-copilot</div>
+      </div>
+    </div>
+    <div class="err" id="err"></div>
+    <div class="field">
+      <label for="u">E-post</label>
+      <input id="u" name="username" type="email" autocomplete="username" required autofocus />
+    </div>
+    <div class="field">
+      <label for="p">Losenord</label>
+      <input id="p" name="password" type="password" autocomplete="current-password" required />
+    </div>
+    <button id="btn" type="submit">Logga in</button>
+    <div class="foot">Endast for VD. Senzum.</div>
+  </form>
+<script>
+  const form = document.getElementById('form');
+  const err = document.getElementById('err');
+  const btn = document.getElementById('btn');
+  // Redan inloggad? Ga direkt in.
+  fetch('/api/me').then(r => { if (r.ok) location.replace('/'); }).catch(()=>{});
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    err.style.display = 'none';
+    btn.disabled = true; btn.textContent = 'Loggar in...';
+    try {
+      const res = await fetch('/api/login', {
+        method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({ username: document.getElementById('u').value, password: document.getElementById('p').value })
+      });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok) throw new Error(data.error || 'Inloggningen misslyckades.');
+      location.replace('/');
+    } catch (e2) {
+      err.textContent = e2.message; err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Logga in';
+    }
+  });
+</script>
+</body>
+</html>

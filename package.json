@@ -1,0 +1,24 @@
+{
+  "name": "pidde",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pidde — VD:s privata operations-copilot for Senzum. Login, chatt, langtidsminne, kunskapsbas, live konsoldata och webbsok.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test src/*.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mammoth": "^1.12.1",
+    "openai": "^4.77.0",
+    "pdf-parse": "^2.4.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

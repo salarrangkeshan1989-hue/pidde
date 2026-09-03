@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Pidde</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;450;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#f4f1ea; --bg2:#efe9dd; --panel:#fffdf8; --panel2:#faf6ee; --ink:#20232a; --muted:#6b6f78;
+    --line:#e6e0d3; --line2:#efe9dd; --blue:#1e78c8; --blue-deep:#155a99; --ring:rgba(30,120,200,.26);
+    --accent:#e9873f; --user:#1e78c8; --ok:#3aae6a; --warn:#e0a53b; --off:#b9b3a6;
+    --shadow-lg:0 24px 70px -30px rgba(40,44,54,.45); --shadow-sm:0 6px 20px -12px rgba(40,44,54,.4);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#15161a; --bg2:#101115; --panel:#1d1f25; --panel2:#232630; --ink:#f2efe8; --muted:#9aa0ab;
+      --line:#2c2f37; --line2:#262932; --blue:#5aa9ea; --blue-deep:#3f86c9; --ring:rgba(90,169,234,.3);
+      --accent:#e6944f; --user:#2f6fb0; --ok:#49c07d; --warn:#e6b455; --off:#4a4d57;
+      --shadow-lg:0 30px 80px -34px rgba(0,0,0,.75); --shadow-sm:0 8px 24px -14px rgba(0,0,0,.6); }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg);
+    -webkit-font-smoothing:antialiased;overflow:hidden}
+  button{font-family:inherit;cursor:pointer}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;border:3px solid transparent;background-clip:content-box}
+
+  /* ── orb ── */
+  .orb{border-radius:50%;position:relative;flex:none;
+    background:radial-gradient(circle at 32% 30%,#8fd0ff 0%,var(--blue) 44%,var(--blue-deep) 100%);
+    box-shadow:0 6px 16px -6px var(--blue-deep)}
+  .orb.anim{animation:breathe 5.5s ease-in-out infinite}
+  .orb::after{content:"";position:absolute;inset:0;border-radius:50%;
+    background:radial-gradient(circle at 68% 74%,rgba(255,255,255,.5),transparent 46%);mix-blend-mode:screen}
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+
+  /* ── layout ── */
+  .app{display:grid;grid-template-columns:286px 1fr;height:100dvh}
+  .side{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .side-head{padding:18px 16px 12px;border-bottom:1px solid var(--line2)}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand .orb{width:38px;height:38px}
+  .brand-name{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:21px;line-height:1}
+  .brand-sub{color:var(--muted);font-size:11.5px;margin-top:3px}
+  .status{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:11.5px;color:var(--muted);
+    background:var(--panel2);border:1px solid var(--line2);padding:4px 9px;border-radius:20px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--off);flex:none}
+  .dot.ok{background:var(--ok);box-shadow:0 0 0 3px rgba(58,174,106,.18)}
+  .dot.warn{background:var(--warn)}
+  .new-btn{margin:12px 12px 6px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);
+    color:var(--ink);font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;justify-content:center;
+    transition:border-color .15s,background .15s}
+  .new-btn:hover{border-color:var(--blue);background:var(--bg)}
+  .threads{flex:1;overflow-y:auto;padding:6px 8px 8px;min-height:0}
+  .thread{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:10px;cursor:pointer;color:var(--ink);
+    font-size:13.5px;line-height:1.3;transition:background .12s}
+  .thread:hover{background:var(--panel2)}
+  .thread.active{background:var(--bg2)}
+  .thread .t-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .thread .t-del{opacity:0;border:0;background:transparent;color:var(--muted);font-size:15px;padding:2px 4px;border-radius:6px;line-height:1}
+  .thread:hover .t-del{opacity:1}
+  .thread .t-del:hover{color:#c0392b;background:rgba(200,60,60,.1)}
+  .threads-empty{color:var(--muted);font-size:12.5px;text-align:center;padding:18px 10px;line-height:1.5}
+  .side-foot{border-top:1px solid var(--line2);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+  .foot-row{display:flex;gap:8px}
+  .chip{flex:1;padding:8px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--ink);
+    font-size:12.5px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;transition:border-color .15s,background .15s}
+  .chip:hover{border-color:var(--blue);background:var(--panel2)}
+  .who{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:12px;padding:2px 2px 0}
+  .who button{border:0;background:transparent;color:var(--muted);font-size:12px;text-decoration:underline;padding:0}
+  .who button:hover{color:var(--ink)}
+
+  /* ── main ── */
+  .main{display:flex;flex-direction:column;min-width:0;min-height:0;background:
+    radial-gradient(900px 500px at 80% -20%,var(--bg2),var(--bg))}
+  .topbar{display:none;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .hamb{border:1px solid var(--line);background:var(--panel2);border-radius:9px;width:38px;height:38px;font-size:17px;color:var(--ink)}
+  .topbar .t-name{font-weight:600;font-size:15px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .chat{flex:1;overflow-y:auto;min-height:0;padding:26px 0}
+  .wrap{max-width:760px;margin:0 auto;padding:0 22px}
+
+  /* empty greeting */
+  .empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:8vh 22px 0;gap:16px}
+  .empty .orb{width:84px;height:84px;box-shadow:0 0 0 10px var(--ring),0 16px 40px -12px var(--blue-deep)}
+  .greet{font-family:Fraunces,Georgia,serif;font-size:30px;font-weight:600;line-height:1.15;margin:8px 0 0}
+  .greet small{display:block;font-family:Inter,sans-serif;font-weight:450;font-size:16px;color:var(--muted);margin-top:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:600px;margin-top:8px}
+  .sugg{padding:11px 15px;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);
+    font-size:13.5px;text-align:left;box-shadow:var(--shadow-sm);transition:border-color .15s,transform .06s}
+  .sugg:hover{border-color:var(--blue)}
+  .sugg:active{transform:translateY(1px)}
+
+  /* messages */
+  .msg{display:flex;gap:12px;margin:0 0 22px;animation:rise .25s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .msg .av{width:30px;height:30px;margin-top:2px}
+  .msg.user{justify-content:flex-end}
+  .bubble{padding:12px 15px;border-radius:16px;font-size:15px;line-height:1.62;max-width:80%;word-wrap:break-word}
+  .msg.user .bubble{background:var(--user);color:#fff;border-bottom-right-radius:6px}
+  .msg.pidde .bubble{background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:6px;box-shadow:var(--shadow-sm);flex:1}
+  .bubble p{margin:0 0 10px}.bubble p:last-child{margin-bottom:0}
+  .bubble ul,.bubble ol{margin:6px 0 10px;padding-left:20px}.bubble li{margin:3px 0}
+  .bubble strong{font-weight:600}
+  .bubble code{background:var(--bg2);padding:1px 6px;border-radius:6px;font-size:13px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .bubble a{color:var(--blue);text-decoration:underline}
+  .status-line{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;font-style:italic;margin-top:2px}
+  .typing{display:inline-flex;gap:4px}.typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:blink 1.2s infinite}
+  .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,60%,100%{opacity:.25}30%{opacity:1}}
+  .caret{display:inline-block;width:7px;height:15px;background:var(--blue);vertical-align:-2px;margin-left:2px;
+    border-radius:1px;animation:caret 1s steps(1) infinite}
+  @keyframes caret{50%{opacity:0}}
+  .err-bubble{background:rgba(200,60,60,.1)!important;border-color:rgba(200,60,60,.3)!important;color:#c0392b}
+  @media (prefers-color-scheme:dark){.err-bubble{color:#ff9b8f}}
+
+  /* composer */
+  .composer{padding:12px 0 18px;background:linear-gradient(transparent,var(--bg) 30%)}
+  .cbox{max-width:760px;margin:0 auto;padding:0 22px}
+  .cinner{display:flex;align-items:flex-end;gap:10px;background:var(--panel);border:1px solid var(--line);
+    border-radius:18px;padding:8px 8px 8px 16px;box-shadow:var(--shadow-sm);transition:border-color .15s,box-shadow .15s}
+  .cinner:focus-within{border-color:var(--blue);box-shadow:0 0 0 4px var(--ring)}
+  textarea{flex:1;border:0;background:transparent;color:var(--ink);font-family:inherit;font-size:15px;line-height:1.5;
+    resize:none;max-height:200px;padding:8px 0;outline:none}
+  .send{width:40px;height:40px;border:0;border-radius:12px;background:var(--blue);color:#fff;font-size:17px;flex:none;
+    display:flex;align-items:center;justify-content:center;transition:background .15s,transform .05s}
+  .send:hover{background:var(--blue-deep)}.send:active{transform:translateY(1px)}
+  .send:disabled{background:var(--off);cursor:default}
+  .chint{max-width:760px;margin:7px auto 0;padding:0 24px;color:var(--muted);font-size:11.5px;display:flex;justify-content:space-between;gap:10px}
+  .modelpill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:20px;padding:2px 4px 2px 10px;background:var(--panel)}
+  .modelpill span{font-size:11.5px;color:var(--muted)}
+  .seg{display:inline-flex;background:var(--bg2);border-radius:16px;padding:2px}
+  .seg button{border:0;background:transparent;color:var(--muted);font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:14px}
+  .seg button.on{background:var(--panel);color:var(--ink);box-shadow:var(--shadow-sm)}
+  .seg button:disabled{opacity:.5;cursor:not-allowed}
+
+  /* panels */
+  .backdrop{position:fixed;inset:0;background:rgba(20,22,28,.4);opacity:0;pointer-events:none;transition:opacity .2s;z-index:40}
+  .backdrop.on{opacity:1;pointer-events:auto}
+  .panel{position:fixed;top:0;right:0;height:100dvh;width:420px;max-width:92vw;background:var(--panel);border-left:1px solid var(--line);
+    box-shadow:var(--shadow-lg);transform:translateX(102%);transition:transform .24s ease;z-index:50;display:flex;flex-direction:column}
+  .panel.on{transform:none}
+  .p-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line2)}
+  .p-head h2{margin:0;font-family:Fraunces,serif;font-weight:600;font-size:20px}
+  .p-close{border:0;background:var(--panel2);width:34px;height:34px;border-radius:9px;font-size:16px;color:var(--muted)}
+  .p-close:hover{color:var(--ink)}
+  .p-body{flex:1;overflow-y:auto;padding:18px 20px;min-height:0}
+  .p-body h3{font-size:13px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:20px 0 8px}
+  .p-body h3:first-child{margin-top:0}
+  .p-body p.hint{color:var(--muted);font-size:12.5px;margin:0 0 12px;line-height:1.5}
+  textarea.box,input.box{width:100%;border:1px solid var(--line);border-radius:11px;background:var(--bg);color:var(--ink);
+    font-family:inherit;font-size:14px;padding:11px 12px;outline:none}
+  textarea.box:focus,input.box:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--ring)}
+  textarea.box{resize:vertical;min-height:88px;line-height:1.5}
+  .btn{border:0;border-radius:10px;background:var(--blue);color:#fff;font-weight:600;font-size:13.5px;padding:10px 14px}
+  .btn:hover{background:var(--blue-deep)}
+  .btn.ghost{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--blue)}
+  .btn.sm{padding:7px 11px;font-size:12.5px}
+  .row{display:flex;gap:8px;align-items:center;margin-top:10px}
+  .item{border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:9px;background:var(--panel2)}
+  .item .it-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .item .it-title{font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .it-meta{color:var(--muted);font-size:11.5px;margin-top:3px}
+  .item .it-text{font-size:13px;line-height:1.5;color:var(--ink);margin-top:4px}
+  .icon-del{border:0;background:transparent;color:var(--muted);font-size:15px;padding:2px 5px;border-radius:6px;flex:none}
+  .icon-del:hover{color:#c0392b;background:rgba(200,60,60,.1)}
+  .filezone{border:1.5px dashed var(--line);border-radius:12px;padding:16px;text-align:center;color:var(--muted);font-size:13px;
+    transition:border-color .15s,background .15s;cursor:pointer}
+  .filezone:hover,.filezone.drag{border-color:var(--blue);background:var(--panel2);color:var(--ink)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);
+    padding:10px 16px;border-radius:11px;font-size:13.5px;opacity:0;transition:opacity .2s,transform .2s;z-index:60;box-shadow:var(--shadow-lg)}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .pmsg{font-size:12.5px;margin-top:8px;min-height:16px}
+  .pmsg.ok{color:var(--ok)}.pmsg.bad{color:#c0392b}
+
+  @media (max-width:820px){
+    .app{grid-template-columns:1fr}
+    .side{position:fixed;top:0;left:0;height:100dvh;width:286px;z-index:45;transform:translateX(-102%);transition:transform .24s ease;box-shadow:var(--shadow-lg)}
+    .side.on{transform:none}
+    .topbar{display:flex}
+    .greet{font-size:25px}
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <!-- sidebar -->
+    <aside class="side" id="side">
+      <div class="side-head">
+        <div class="brand">
+          <div class="orb anim"></div>
+          <div>
+            <div class="brand-name">Pidde</div>
+            <div class="brand-sub">Din operations-copilot</div>
+          </div>
+        </div>
+        <div class="status" id="dataStatus" title="Koppling till NEXUS-konsolen">
+          <span class="dot" id="dataDot"></span><span id="dataLabel">Konsoldata</span>
+        </div>
+      </div>
+      <button class="new-btn" id="newChat">＋ Nytt samtal</button>
+      <div class="threads" id="threads"></div>
+      <div class="side-foot">
+        <div class="foot-row">
+          <button class="chip" id="openMemory">✦ Minne</button>
+          <button class="chip" id="openKnowledge">◲ Kunskap</button>
+          <button class="chip" id="openSettings">⚙ Konto</button>
+        </div>
+        <div class="who">
+          <span id="whoName">VD</span>
+          <button id="logout">Logga ut</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- main -->
+    <main class="main">
+      <div class="topbar">
+        <button class="hamb" id="hamb" aria-label="Meny">☰</button>
+        <div class="t-name" id="topTitle">Pidde</div>
+      </div>
+      <div class="chat" id="chat"></div>
+      <div class="composer">
+        <div class="cbox">
+          <div class="cinner">
+            <textarea id="input" rows="1" placeholder="Dela dagens utmaning med Pidde..." autofocus></textarea>
+            <button class="send" id="send" aria-label="Skicka">➤</button>
+          </div>
+        </div>
+        <div class="chint">
+          <span>Enter skickar · Shift+Enter ny rad</span>
+          <span class="modelpill">
+            <span>Motor</span>
+            <span class="seg" id="modelSeg">
+              <button data-p="claude" class="on">Claude</button>
+              <button data-p="openai">OpenAI</button>
+            </span>
+          </span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- panels -->
+  <div class="backdrop" id="backdrop"></div>
+  <section class="panel" id="panelMemory" aria-hidden="true">
+    <div class="p-head"><h2>Piddes minne</h2><button class="p-close" data-close>✕</button></div>
+    <div class="p-body">
+      <p class="hint">Det Pidde minns om dig och foretaget mellan samtal. Pidde fyller pa sjalv, och du kan redigera fritt.</p>
+      <h3>Om dig och foretaget</h3>
+      <textarea class="box" id="memProfile" placeholder="T.ex. roll, prioriteringar, pagaende affarer, hur du vill att Pidde jobbar..."></textarea>
+      <div class="row"><button class="btn sm" id="saveProfile">Spara</button><span class="pmsg" id="profileMsg"></span></div>
+      <h3>Sparade fakta</h3>
+      <div class="row" style="margin-top:0">
+        <input class="box" id="factInput" placeholder="Lagg till en fakta att minnas..." />
+        <button class="btn sm" id="addFact">Lagg till</button>
+      </div>
+      <div id="factList" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panelKnowledge" aria-hidden="true">
+    <div class="p-head"><h2>Kunskapsbas</h2><button class="p-close" data-close>✕</button></div>
+    <div class="p-body">
+      <p class="hint">Ladda upp eller klistra in dokument (org, personalhandbok, avtal, strategi). Pidde soker i dem nar det behovs. Stodjer .txt, .md, .docx, .pdf.</p>
+      <div class="filezone" id="filezone">Slapp en fil har, eller klicka for att valja<input type="file" id="fileInput" accept=".txt,.md,.csv,.json,.docx,.pdf" hidden /></div>
+      <h3>Klistra in text</h3>
+      <input class="box" id="kbTitle" placeholder="Titel" style="margin-bottom:8px" />
+      <textarea class="box" id="kbText" placeholder="Klistra in text har..."></textarea>
+      <div class="row"><button class="btn sm" id="addDoc">Spara dokument</button><span class="pmsg" id="kbMsg"></span></div>
+      <h3>Dokument</h3>
+      <div id="docList"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panelSettings" aria-hidden="true">
+    <div class="p-head"><h2>Konto</h2><button class="p-close" data-close>✕</button></div>
+    <div class="p-body">
+      <h3>Status</h3>
+      <div id="statusList"></div>
+      <h3>Byt losenord</h3>
+      <input class="box" id="pwCurrent" type="password" placeholder="Nuvarande losenord" style="margin-bottom:8px" />
+      <input class="box" id="pwNext" type="password" placeholder="Nytt losenord (minst 8 tecken)" />
+      <div class="row"><button class="btn sm" id="savePw">Byt losenord</button><span class="pmsg" id="pwMsg"></span></div>
+    </div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const $ = (s, r=document) => r.querySelector(s);
+  const el = (t, c) => { const e=document.createElement(t); if(c)e.className=c; return e; };
+  // Escapar aven fnuttar sa AI-text aldrig kan bryta ut ur ett href-attribut i md():s lankrenderare.
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const state = { user:null, providers:null, consoleConfigured:false, provider:'claude', threadId:null, streaming:false };
+
+  /* ── safe markdown ── */
+  function md(src){
+    const lines = String(src||'').replace(/\r/g,'').split('\n');
+    let html='', list=null;
+    const inline = t => esc(t)
+      .replace(/`([^`]+)`/g,(m,a)=>'<code>'+a+'</code>')
+      .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<em>$2</em>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    const closeList = () => { if(list){ html+='</'+list+'>'; list=null; } };
+    for(const raw of lines){
+      const line = raw.trim();
+      let m;
+      if((m = line.match(/^[-*]\s+(.*)/))){ if(list!=='ul'){closeList();html+='<ul>';list='ul';} html+='<li>'+inline(m[1])+'</li>'; continue; }
+      if((m = line.match(/^\d+[.)]\s+(.*)/))){ if(list!=='ol'){closeList();html+='<ol>';list='ol';} html+='<li>'+inline(m[1])+'</li>'; continue; }
+      closeList();
+      if(line) html+='<p>'+inline(line)+'</p>';
+    }
+    closeList();
+    return html || '<p></p>';
+  }
+
+  /* ── toast ── */
+  let toastT;
+  function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2600); }
+
+  /* ── api ── */
+  async function api(url, opts){
+    const res = await fetch(url, opts);
+    if(res.status===401){ location.replace('/login'); throw new Error('unauth'); }
+    return res;
+  }
+  const jget = async u => (await api(u)).json();
+  const jsend = async (u,method,body) => { const r=await api(u,{method,headers:{'content-type':'application/json'},body:JSON.stringify(body||{})}); const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||'Fel'); return d; };
+
+  /* ── init ── */
+  async function init(){
+    let me; try{ me = await jget('/api/me'); }catch{ return; }
+    state.user = me.user;
+    try{ const cfg = await jget('/api/config'); state.providers=cfg.providers; state.consoleConfigured=cfg.consoleConfigured;
+      if(cfg.providers.defaultProvider) state.provider=cfg.providers.defaultProvider; }catch{}
+    $('#whoName').textContent = state.user.name || state.user.username;
+    setupModelSeg();
+    setDataDot(state.consoleConfigured ? 'warn' : 'off', state.consoleConfigured ? 'Konsoldata' : 'Konsoldata ej kopplad');
+    if(state.consoleConfigured) checkConsole();
+    await loadThreads();
+    renderEmpty();
+  }
+
+  function setDataDot(cls, label){ const d=$('#dataDot'); d.className='dot'+(cls?' '+cls:''); $('#dataLabel').textContent=label; }
+  async function checkConsole(){ try{ const h=await jget('/api/console/health'); if(h.ok) setDataDot('ok','Konsoldata ansluten'); else setDataDot('warn','Konsoldata: inloggning nekad'); }catch{} }
+
+  function setupModelSeg(){
+    const seg=$('#modelSeg');
+    seg.querySelectorAll('button').forEach(b=>{
+      const p=b.dataset.p;
+      if(p==='openai' && !(state.providers && state.providers.openai)){ b.disabled=true; b.title='Lagg till OPENAI_API_KEY for att aktivera'; }
+      b.classList.toggle('on', p===state.provider);
+      b.onclick=()=>{ if(b.disabled)return; state.provider=p; seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); };
+    });
+  }
+
+  /* ── threads ── */
+  async function loadThreads(){
+    const {threads} = await jget('/api/threads');
+    const box=$('#threads'); box.innerHTML='';
+    if(!threads.length){ const e=el('div','threads-empty'); e.textContent='Inga samtal an. Borja prata med Pidde sa dyker de upp har.'; box.appendChild(e); return; }
+    for(const t of threads){
+      const row=el('div','thread'); if(t.id===state.threadId) row.classList.add('active');
+      const title=el('div','t-title'); title.textContent=t.title||'Nytt samtal';
+      const del=el('button','t-del'); del.textContent='🗑'; del.title='Ta bort';
+      del.onclick=(e)=>{ e.stopPropagation(); removeThread(t.id); };
+      row.append(title,del);
+      row.onclick=()=>openThread(t.id);
+      box.appendChild(row);
+    }
+  }
+  async function removeThread(id){ try{ await api('/api/threads/'+id,{method:'DELETE'}); if(state.threadId===id){ state.threadId=null; renderEmpty(); } await loadThreads(); }catch{} }
+
+  async function openThread(id){
+    try{
+      const {thread}=await jget('/api/threads/'+id);
+      state.threadId=id; closeSide();
+      $('#topTitle').textContent=thread.title||'Pidde';
+      const chat=$('#chat'); chat.innerHTML=''; const wrap=el('div','wrap'); chat.appendChild(wrap);
+      for(const m of thread.messages){ wrap.appendChild(m.role==='user'?userMsg(m.content):piddeMsg(md(m.content))); }
+      scrollDown(); await loadThreads();
+    }catch{}
+  }
+
+  /* ── render ── */
+  function greeting(){
+    const h=new Date().getHours(); const name=(state.user&&(state.user.name||state.user.username)||'').split('@')[0];
+    const g = h<10?'God morgon':h<13?'God förmiddag':h<18?'God eftermiddag':'God kväll';
+    return {g: g+(name&&name!=='VD'?', '+name:''), sub:'Vad brottas vi med idag?'};
+  }
+  function renderEmpty(){
+    state.threadId=null; $('#topTitle').textContent='Pidde';
+    const chat=$('#chat'); chat.innerHTML='';
+    const box=el('div','empty');
+    const {g,sub}=greeting();
+    box.innerHTML='<div class="orb anim"></div><div class="greet">'+esc(g)+'<small>'+esc(sub)+'</small></div>';
+    const chips=el('div','chips');
+    const suggs=['Ge mig dagens läge','Var tappar vi marginal just nu?','Hur ligger bemanningen mot volymen?','Hjälp mig tänka kring ett personalärende'];
+    for(const s of suggs){ const b=el('button','sugg'); b.textContent=s; b.onclick=()=>{ $('#input').value=s; send(); }; chips.appendChild(b); }
+    box.appendChild(chips); chat.appendChild(box);
+  }
+  function userMsg(text){ const m=el('div','msg user'); const b=el('div','bubble'); b.textContent=text; m.appendChild(b); return m; }
+  function piddeMsg(html){
+    const m=el('div','msg pidde'); const av=el('div','orb av'); const b=el('div','bubble'); b.innerHTML=html;
+    m.append(av,b); return m;
+  }
+  function scrollDown(){ const c=$('#chat'); c.scrollTop=c.scrollHeight; }
+
+  /* ── send + stream ── */
+  async function send(){
+    if(state.streaming) return;
+    const inp=$('#input'); const text=inp.value.trim(); if(!text) return;
+    inp.value=''; autogrow();
+    // switch from empty state to a wrap if needed
+    let wrap=$('#chat .wrap');
+    if(!wrap){ $('#chat').innerHTML=''; wrap=el('div','wrap'); $('#chat').appendChild(wrap); }
+    wrap.appendChild(userMsg(text));
+    // pidde bubble with typing
+    const m=el('div','msg pidde'); const av=el('div','orb av'); const b=el('div','bubble');
+    const status=el('div','status-line'); status.innerHTML='<span class="typing"><i></i><i></i><i></i></span>';
+    const content=el('div'); b.append(content,status); m.append(av,b); wrap.appendChild(m); scrollDown();
+
+    state.streaming=true; $('#send').disabled=true;
+    let acc='';
+    const setContent=()=>{ content.innerHTML=md(acc)+'<span class="caret"></span>'; };
+    try{
+      const res=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},
+        body:JSON.stringify({threadId:state.threadId,message:text,provider:state.provider})});
+      if(res.status===401){ location.replace('/login'); return; }
+      if(!res.ok || !res.body){ const d=await res.json().catch(()=>({})); throw new Error(d.error||'Kunde inte svara.'); }
+      const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='';
+      while(true){
+        const {value,done}=await reader.read(); if(done) break;
+        buf+=dec.decode(value,{stream:true}); let i;
+        while((i=buf.indexOf('\n\n'))>=0){
+          const chunk=buf.slice(0,i); buf=buf.slice(i+2);
+          const line=chunk.split('\n').find(l=>l.startsWith('data: ')); if(!line) continue;
+          let ev; try{ ev=JSON.parse(line.slice(6)); }catch{ continue; }
+          if(ev.type==='thread'){ if(ev.id) state.threadId=ev.id; }
+          else if(ev.type==='status'){ status.innerHTML='<span class="dot warn" style="animation:breathe 1.4s infinite"></span>'+esc(ev.text); status.style.display='flex'; scrollDown(); }
+          else if(ev.type==='delta'){ acc+=ev.text; status.style.display='none'; setContent(); scrollDown(); }
+          else if(ev.type==='done'){ content.innerHTML=md(acc); status.style.display='none';
+            if(ev.title) $('#topTitle').textContent=ev.title; loadThreads(); }
+          else if(ev.type==='error'){ b.classList.add('err-bubble'); content.innerHTML=md(acc); status.style.display='none';
+            const e=el('div'); e.style.marginTop=acc?'8px':'0'; e.textContent='⚠ '+(ev.message||ev.text||'Nagot gick fel.'); content.appendChild(e); }
+        }
+      }
+    }catch(e){ b.classList.add('err-bubble'); content.textContent='⚠ '+(e.message||'Nagot gick fel.'); status.style.display='none'; }
+    finally{ state.streaming=false; $('#send').disabled=false; if(content.querySelector('.caret'))content.innerHTML=md(acc); inp.focus(); scrollDown(); }
+  }
+
+  /* ── composer behavior ── */
+  const input=$('#input');
+  function autogrow(){ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,200)+'px'; }
+  input.addEventListener('input',autogrow);
+  input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } });
+  $('#send').onclick=send;
+  $('#newChat').onclick=()=>{ renderEmpty(); closeSide(); input.focus(); loadThreads(); };
+
+  /* ── sidebar (mobile) ── */
+  function openSide(){ $('#side').classList.add('on'); $('#backdrop').classList.add('on'); }
+  function closeSide(){ $('#side').classList.remove('on'); if(!anyPanelOpen())$('#backdrop').classList.remove('on'); }
+  $('#hamb').onclick=openSide;
+
+  /* ── panels ── */
+  function anyPanelOpen(){ return !!document.querySelector('.panel.on'); }
+  function openPanel(id){ document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on')); $(id).classList.add('on'); $(id).setAttribute('aria-hidden','false'); $('#backdrop').classList.add('on'); }
+  function closePanels(){ document.querySelectorAll('.panel').forEach(p=>{p.classList.remove('on');p.setAttribute('aria-hidden','true');}); if(!$('#side').classList.contains('on'))$('#backdrop').classList.remove('on'); }
+  $('#backdrop').onclick=()=>{ closePanels(); closeSide(); };
+  document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closePanels);
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closePanels(); closeSide(); } });
+
+  $('#openMemory').onclick=async()=>{ openPanel('#panelMemory'); await loadMemory(); };
+  $('#openKnowledge').onclick=async()=>{ openPanel('#panelKnowledge'); await loadDocs(); };
+  $('#openSettings').onclick=()=>{ openPanel('#panelSettings'); renderStatus(); };
+
+  /* ── memory ── */
+  async function loadMemory(){
+    const m=await jget('/api/memory');
+    $('#memProfile').value=m.profile||'';
+    const list=$('#factList'); list.innerHTML='';
+    if(!m.facts.length){ const e=el('p','hint'); e.textContent='Inga sparade fakta an. Pidde lagger till allteftersom, eller lagg till egna ovan.'; list.appendChild(e); }
+    for(const f of m.facts){
+      const it=el('div','item'); const top=el('div','it-top');
+      const tx=el('div','it-text'); tx.textContent=f.text;
+      const del=el('button','icon-del'); del.textContent='🗑'; del.onclick=async()=>{ await api('/api/memory/facts/'+f.id,{method:'DELETE'}); loadMemory(); };
+      top.append(tx,del); it.appendChild(top); list.appendChild(it);
+    }
+  }
+  $('#saveProfile').onclick=async()=>{ try{ await jsend('/api/memory/profile','PUT',{profile:$('#memProfile').value}); const p=$('#profileMsg'); p.className='pmsg ok'; p.textContent='Sparat'; setTimeout(()=>p.textContent='',1800); }catch(e){ const p=$('#profileMsg'); p.className='pmsg bad'; p.textContent=e.message; } };
+  $('#addFact').onclick=async()=>{ const v=$('#factInput').value.trim(); if(!v)return; try{ await jsend('/api/memory/facts','POST',{text:v}); $('#factInput').value=''; loadMemory(); }catch(e){ toast(e.message); } };
+  $('#factInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('#addFact').click(); } });
+
+  /* ── knowledge ── */
+  async function loadDocs(){
+    const {docs}=await jget('/api/knowledge');
+    const list=$('#docList'); list.innerHTML='';
+    if(!docs.length){ const e=el('p','hint'); e.textContent='Inga dokument an.'; list.appendChild(e); return; }
+    for(const d of docs){
+      const it=el('div','item'); const top=el('div','it-top');
+      const left=el('div'); const ti=el('div','it-title'); ti.textContent=d.title;
+      const meta=el('div','it-meta'); meta.textContent=(d.source?d.source+' · ':'')+Math.round((d.chars||0)/100)/10+'k tecken';
+      left.append(ti,meta);
+      const del=el('button','icon-del'); del.textContent='🗑'; del.onclick=async()=>{ await api('/api/knowledge/'+d.id,{method:'DELETE'}); loadDocs(); };
+      top.append(left,del); it.appendChild(top); list.appendChild(it);
+    }
+  }
+  $('#addDoc').onclick=async()=>{ const title=$('#kbTitle').value.trim(); const text=$('#kbText').value.trim(); if(!text){ toast('Klistra in text forst.'); return; }
+    try{ await jsend('/api/knowledge','POST',{title,text}); $('#kbTitle').value='';$('#kbText').value=''; const p=$('#kbMsg'); p.className='pmsg ok'; p.textContent='Sparat'; setTimeout(()=>p.textContent='',1800); loadDocs(); }catch(e){ const p=$('#kbMsg'); p.className='pmsg bad'; p.textContent=e.message; } };
+
+  const fz=$('#filezone'), fi=$('#fileInput');
+  fz.onclick=()=>fi.click();
+  fz.addEventListener('dragover',e=>{e.preventDefault();fz.classList.add('drag');});
+  fz.addEventListener('dragleave',()=>fz.classList.remove('drag'));
+  fz.addEventListener('drop',e=>{e.preventDefault();fz.classList.remove('drag'); if(e.dataTransfer.files[0])uploadFile(e.dataTransfer.files[0]);});
+  fi.addEventListener('change',()=>{ if(fi.files[0])uploadFile(fi.files[0]); fi.value=''; });
+  async function uploadFile(file){
+    if(file.size>20*1024*1024){ toast('Filen ar for stor (max 20 MB).'); return; }
+    fz.textContent='Laser '+file.name+'...';
+    try{
+      const dataBase64=await new Promise((res,rej)=>{ const r=new FileReader(); r.onerror=()=>rej(new Error('Kunde inte lasa filen')); r.onload=()=>res(String(r.result).split(',')[1]); r.readAsDataURL(file); });
+      await jsend('/api/knowledge/upload','POST',{filename:file.name,dataBase64});
+      toast('Tillagt: '+file.name); loadDocs();
+    }catch(e){ toast(e.message); }
+    fz.textContent='Slapp en fil har, eller klicka for att valja';
+  }
+
+  /* ── settings ── */
+  function renderStatus(){
+    const p=state.providers||{}; const list=$('#statusList'); list.innerHTML='';
+    const rows=[
+      ['Motor', p.anthropic?('Claude ('+((p.models&&p.models.claude)||'')+')'):'ej konfigurerad', p.anthropic?'ok':'off'],
+      ['OpenAI', p.openai?'aktiv':'ej konfigurerad (vaxlaren tands nar nyckeln finns)', p.openai?'ok':'off'],
+      ['Webbsok', p.web?'pa':'av', p.web?'ok':'off'],
+      ['Konsoldata', state.consoleConfigured?'kopplad':'ej kopplad', state.consoleConfigured?'ok':'off'],
+    ];
+    for(const [k,v,s] of rows){
+      const it=el('div','item'); const top=el('div','it-top');
+      const left=el('div'); const ti=el('div','it-title'); ti.textContent=k; const meta=el('div','it-meta'); meta.textContent=v;
+      left.append(ti,meta);
+      const dot=el('span','dot '+(s==='ok'?'ok':''));
+      top.append(left,dot); it.appendChild(top); list.appendChild(it);
+    }
+  }
+  $('#savePw').onclick=async()=>{ const cur=$('#pwCurrent').value, nxt=$('#pwNext').value; const p=$('#pwMsg');
+    try{ await jsend('/api/password','POST',{current:cur,next:nxt}); p.className='pmsg ok'; p.textContent='Losenordet bytt'; $('#pwCurrent').value='';$('#pwNext').value=''; }catch(e){ p.className='pmsg bad'; p.textContent=e.message; } };
+  $('#logout').onclick=async()=>{ try{ await api('/api/logout',{method:'POST'}); }catch{} location.replace('/login'); };
+
+  init();
+})();
+</script>
+</body>
+</html>
