@@ -34,6 +34,8 @@
     animation:shimmer 7s ease-in-out infinite}
   @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
   @keyframes shimmer{0%,100%{opacity:.55;transform:rotate(0)}50%{opacity:.9;transform:rotate(12deg)}}
+  .face{width:86px;height:86px;border-radius:50%;object-fit:cover;object-position:50% 14%;background:#cfe0f2;
+    box-shadow:0 0 0 8px var(--ring),0 14px 34px -10px var(--blue-deep);animation:breathe 5.5s ease-in-out infinite}
   h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:30px;margin:0;letter-spacing:.2px}
   .tag{color:var(--muted);font-size:14px;margin-top:-2px}
   label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin:0 0 6px 2px}
@@ -55,7 +57,7 @@
 <body>
   <form class="card" id="form" autocomplete="on">
     <div class="brand">
-      <div class="orb"></div>
+      <img class="face" src="/pidde-avatar.webp" alt="Pidde" />
       <div>
         <h1>Pidde</h1>
         <div class="tag">Din operations-copilot</div>

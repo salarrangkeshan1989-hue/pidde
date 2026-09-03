@@ -36,6 +36,11 @@
   .orb::after{content:"";position:absolute;inset:0;border-radius:50%;
     background:radial-gradient(circle at 68% 74%,rgba(255,255,255,.5),transparent 46%);mix-blend-mode:screen}
   @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+  /* ── Pidde-ansiktet (avatarbild) ── */
+  .face{border-radius:50%;object-fit:cover;object-position:50% 14%;background:#cfe0f2;flex:none;display:block;
+    box-shadow:0 4px 14px -6px rgba(30,60,100,.55)}
+  .brand .face{width:44px;height:44px}
+  .empty .face{width:108px;height:108px;box-shadow:0 0 0 8px var(--ring),0 18px 44px -14px rgba(30,60,100,.6);animation:breathe 6s ease-in-out infinite}
 
   /* ── layout ── */
   .app{display:grid;grid-template-columns:286px 1fr;height:100dvh}
@@ -96,7 +101,7 @@
   /* messages */
   .msg{display:flex;gap:12px;margin:0 0 22px;animation:rise .25s ease}
   @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-  .msg .av{width:30px;height:30px;margin-top:2px}
+  .msg .av{width:34px;height:34px;margin-top:2px}
   .msg.user{justify-content:flex-end}
   .bubble{padding:12px 15px;border-radius:16px;font-size:15px;line-height:1.62;max-width:80%;word-wrap:break-word}
   .msg.user .bubble{background:var(--user);color:#fff;border-bottom-right-radius:6px}
@@ -119,6 +124,13 @@
   /* composer */
   .composer{padding:12px 0 18px;background:linear-gradient(transparent,var(--bg) 30%)}
   .cbox{max-width:760px;margin:0 auto;padding:0 22px}
+  .voice{display:flex;align-items:center;gap:8px;margin:0 auto 10px;padding:9px 18px;border:1px solid var(--line);
+    border-radius:22px;background:var(--panel);color:var(--ink);font-size:13.5px;font-weight:600;box-shadow:var(--shadow-sm);
+    transition:border-color .15s,background .15s,color .15s}
+  .voice:hover{border-color:var(--blue);background:var(--panel2)}
+  .voice svg{width:16px;height:16px}
+  .voice.listening{background:#e5484d;border-color:#e5484d;color:#fff;animation:vpulse 1.3s ease-in-out infinite}
+  @keyframes vpulse{0%,100%{box-shadow:0 0 0 0 rgba(229,72,77,.5)}50%{box-shadow:0 0 0 12px rgba(229,72,77,0)}}
   .cinner{display:flex;align-items:flex-end;gap:10px;background:var(--panel);border:1px solid var(--line);
     border-radius:18px;padding:8px 8px 8px 16px;box-shadow:var(--shadow-sm);transition:border-color .15s,box-shadow .15s}
   .cinner:focus-within{border-color:var(--blue);box-shadow:0 0 0 4px var(--ring)}
@@ -191,7 +203,7 @@
     <aside class="side" id="side">
       <div class="side-head">
         <div class="brand">
-          <div class="orb anim"></div>
+          <img class="face" src="/pidde-avatar.webp" alt="Pidde" />
           <div>
             <div class="brand-name">Pidde</div>
             <div class="brand-sub">Din operations-copilot</div>
@@ -225,6 +237,10 @@
       <div class="chat" id="chat"></div>
       <div class="composer">
         <div class="cbox">
+          <button class="voice" id="voiceBtn" type="button" aria-label="Prata med Pidde">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+            <span class="vlabel">Prata med Pidde</span>
+          </button>
           <div class="cinner">
             <textarea id="input" rows="1" placeholder="Dela dagens utmaning med Pidde..." autofocus></textarea>
             <button class="send" id="send" aria-label="Skicka">➤</button>
@@ -296,6 +312,7 @@
   const el = (t, c) => { const e=document.createElement(t); if(c)e.className=c; return e; };
   // Escapar aven fnuttar sa AI-text aldrig kan bryta ut ur ett href-attribut i md():s lankrenderare.
   const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const avatar = c => { const im=el('img',c); im.src='/pidde-avatar.webp'; im.alt='Pidde'; return im; };
   const state = { user:null, providers:null, consoleConfigured:false, provider:'claude', threadId:null, streaming:false, onboarded:true };
   function userFirstName(){
     const raw=(state.user&&(state.user.name||state.user.username)||'');
@@ -417,12 +434,12 @@
     }
     const box=el('div','empty');
     const {g,sub}=greeting();
-    box.innerHTML='<div class="orb anim"></div><div class="greet">'+esc(g)+'<small>'+esc(sub)+'</small></div>';
+    box.innerHTML='<img class="face" src="/pidde-avatar.webp" alt="Pidde"><div class="greet">'+esc(g)+'<small>'+esc(sub)+'</small></div>';
     box.appendChild(makeChips()); chat.appendChild(box);
   }
   function userMsg(text){ const m=el('div','msg user'); const b=el('div','bubble'); b.textContent=text; m.appendChild(b); return m; }
   function piddeMsg(html){
-    const m=el('div','msg pidde'); const av=el('div','orb av'); const b=el('div','bubble'); b.innerHTML=html;
+    const m=el('div','msg pidde'); const av=avatar('av face'); const b=el('div','bubble'); b.innerHTML=html;
     m.append(av,b); return m;
   }
   function scrollDown(){ const c=$('#chat'); c.scrollTop=c.scrollHeight; }
@@ -438,7 +455,7 @@
     if(!wrap){ $('#chat').innerHTML=''; wrap=el('div','wrap'); $('#chat').appendChild(wrap); }
     wrap.appendChild(userMsg(text));
     // pidde bubble with typing
-    const m=el('div','msg pidde'); const av=el('div','orb av'); const b=el('div','bubble');
+    const m=el('div','msg pidde'); const av=avatar('av face'); const b=el('div','bubble');
     const status=el('div','status-line'); status.innerHTML='<span class="typing"><i></i><i></i><i></i></span>';
     const content=el('div'); b.append(content,status); m.append(av,b); wrap.appendChild(m); scrollDown();
 
@@ -478,6 +495,29 @@
   input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } });
   $('#send').onclick=send;
   $('#newChat').onclick=()=>{ renderEmpty(); closeSide(); input.focus(); loadThreads(); };
+
+  /* ── Prata med Pidde (rost -> text -> skicka) ── */
+  let recog=null, listening=false;
+  const voiceBtn=$('#voiceBtn'), vlabel=voiceBtn.querySelector('.vlabel');
+  function setVoiceUI(on){ listening=on; voiceBtn.classList.toggle('listening',on); vlabel.textContent = on ? 'Lyssnar… klicka för att skicka' : 'Prata med Pidde'; }
+  voiceBtn.onclick=()=>{
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR){ toast('Rostinmatning stods inte har. Prova Chrome eller Edge.'); return; }
+    if(listening){ try{ recog && recog.stop(); }catch{} return; }
+    if(state.streaming){ toast('Vanta tills Pidde svarat klart.'); return; }
+    recog = new SR();
+    recog.lang='sv-SE'; recog.interimResults=true; recog.continuous=true; recog.maxAlternatives=1;
+    let finalText='';
+    recog.onstart=()=>setVoiceUI(true);
+    recog.onresult=(e)=>{
+      let interim='';
+      for(let i=e.resultIndex;i<e.results.length;i++){ const t=e.results[i][0].transcript; if(e.results[i].isFinal) finalText+=t+' '; else interim+=t; }
+      input.value=(finalText+interim).trim(); autogrow();
+    };
+    recog.onerror=(e)=>{ if(e.error==='not-allowed'||e.error==='service-not-allowed') toast('Ge Pidde mikrofon-tillstand i webblasaren.'); else if(e.error!=='no-speech'&&e.error!=='aborted') toast('Rostfel: '+e.error); };
+    recog.onend=()=>{ setVoiceUI(false); const t=input.value.trim(); if(t && finalText.trim()) send(); };
+    try{ recog.start(); }catch(err){ setVoiceUI(false); toast('Kunde inte starta rosten: '+err.message); }
+  };
 
   /* ── sidebar (mobile) ── */
   function openSide(){ $('#side').classList.add('on'); $('#backdrop').classList.add('on'); }
