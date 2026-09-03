@@ -460,8 +460,24 @@
     const content=el('div'); b.append(content,status); m.append(av,b); wrap.appendChild(m); scrollDown();
 
     state.streaming=true; $('#send').disabled=true;
-    let acc='';
-    const setContent=()=>{ content.innerHTML=md(acc)+'<span class="caret"></span>'; };
+    // Mjuk, jamn utskrift. Modellen skickar text i klumpar; vi bufferar den i
+    // "target" och avslojar den tecken for tecken i jamn takt via requestAnimationFrame,
+    // sa skrivandet flyter i stallet for att hacka. Rendrar hogst en gang per frame.
+    const chatEl=$('#chat');
+    let target='', shown=0, raf=null, ended=false, errored=false;
+    const nearBottom=()=> chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 150;
+    const paint=(caret)=>{ content.innerHTML = md(target.slice(0,shown)) + (caret?'<span class="caret"></span>':''); };
+    const frame=()=>{
+      if(shown<target.length){
+        const stick=nearBottom();
+        shown=Math.min(target.length, shown + Math.max(3, Math.ceil((target.length-shown)/9)));
+        paint(true);
+        if(stick) chatEl.scrollTop=chatEl.scrollHeight;
+      }
+      if(shown<target.length || !ended){ raf=requestAnimationFrame(frame); }
+      else { paint(false); raf=null; }
+    };
+    const kick=()=>{ if(raf==null) raf=requestAnimationFrame(frame); };
     try{
       const res=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},
         body:JSON.stringify({threadId:state.threadId,message:text,provider:state.provider})});
@@ -476,16 +492,17 @@
           const line=chunk.split('\n').find(l=>l.startsWith('data: ')); if(!line) continue;
           let ev; try{ ev=JSON.parse(line.slice(6)); }catch{ continue; }
           if(ev.type==='thread'){ if(ev.id) state.threadId=ev.id; }
-          else if(ev.type==='status'){ status.innerHTML='<span class="dot warn" style="animation:breathe 1.4s infinite"></span>'+esc(ev.text); status.style.display='flex'; scrollDown(); }
-          else if(ev.type==='delta'){ acc+=ev.text; status.style.display='none'; setContent(); scrollDown(); }
-          else if(ev.type==='done'){ content.innerHTML=md(acc); status.style.display='none'; state.onboarded=true;
+          else if(ev.type==='status'){ status.innerHTML='<span class="dot warn" style="animation:breathe 1.4s infinite"></span>'+esc(ev.text); status.style.display='flex'; if(nearBottom()) chatEl.scrollTop=chatEl.scrollHeight; }
+          else if(ev.type==='delta'){ target+=ev.text; status.style.display='none'; kick(); }
+          else if(ev.type==='done'){ ended=true; kick(); status.style.display='none'; state.onboarded=true;
             if(ev.title) $('#topTitle').textContent=ev.title; loadThreads(); }
-          else if(ev.type==='error'){ b.classList.add('err-bubble'); content.innerHTML=md(acc); status.style.display='none';
-            const e=el('div'); e.style.marginTop=acc?'8px':'0'; e.textContent='⚠ '+(ev.message||ev.text||'Nagot gick fel.'); content.appendChild(e); }
+          else if(ev.type==='error'){ errored=true; ended=true; if(raf!=null){cancelAnimationFrame(raf);raf=null;}
+            b.classList.add('err-bubble'); content.innerHTML=md(target); status.style.display='none';
+            const e=el('div'); e.style.marginTop=target?'8px':'0'; e.textContent='⚠ '+(ev.message||ev.text||'Nagot gick fel.'); content.appendChild(e); }
         }
       }
-    }catch(e){ b.classList.add('err-bubble'); content.textContent='⚠ '+(e.message||'Nagot gick fel.'); status.style.display='none'; }
-    finally{ state.streaming=false; $('#send').disabled=false; if(content.querySelector('.caret'))content.innerHTML=md(acc); inp.focus(); scrollDown(); }
+    }catch(e){ errored=true; ended=true; if(raf!=null){cancelAnimationFrame(raf);raf=null;} b.classList.add('err-bubble'); content.textContent='⚠ '+(e.message||'Nagot gick fel.'); status.style.display='none'; }
+    finally{ if(!errored){ ended=true; kick(); } state.streaming=false; $('#send').disabled=false; inp.focus(); }
   }
 
   /* ── composer behavior ── */
