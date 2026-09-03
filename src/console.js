@@ -30,10 +30,13 @@ function baseUrl(env) { return clean(env.CONSOLE_URL).replace(/\/+$/, ''); }
 let session = { cookie: null, at: 0 };
 
 async function login(env) {
+  const user = clean(env.CONSOLE_USER);
   const res = await fetch(baseUrl(env) + '/api/login', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ username: clean(env.CONSOLE_USER), password: clean(env.CONSOLE_PASSWORD) }),
+    // NEXUS-konsolen laser body.email; vi skickar bade email och username sa det
+    // funkar oavsett vilket faltnamn konsolen forvantar sig.
+    body: JSON.stringify({ email: user, username: user, password: clean(env.CONSOLE_PASSWORD) }),
     signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) throw new Error(`konsol-login gav HTTP ${res.status}`);
