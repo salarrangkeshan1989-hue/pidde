@@ -156,7 +156,14 @@ app.post('/api/chat', requireAuth, async (req, res) => {
     if (!buf.length) continue;
     attachNames.push(name);
     if (isImage(name)) {
-      images.push({ media_type: imageMediaType(name), data: str(a.dataBase64) });
+      const b64 = str(a.dataBase64);
+      // Sakerhetsnat mot Claudes bildgrans: klienten skalar ner bilder, men skippa
+      // hellre en jattebild an att lata hela svaret 400:a. ~6,8M tecken ≈ 5 MB.
+      if (b64.length > 6_800_000) {
+        docBlocks.push(`[BIFOGAD BILD: ${name}] (for stor for att analysera, be anvandaren skicka en mindre eller nedskalad bild)`);
+      } else {
+        images.push({ media_type: imageMediaType(name), data: b64 });
+      }
     } else {
       const { text: extracted, error } = await extractAttachment(buf, name);
       docBlocks.push(error ? `[BIFOGAD FIL: ${name}] (kunde inte lasa: ${error})` : `[BIFOGAD FIL: ${name}]\n${str(extracted).slice(0, 60000)}\n[SLUT: ${name}]`);

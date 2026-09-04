@@ -553,18 +553,41 @@
 
   /* ── bifoga filer ── */
   let pendingFiles=[];
-  const MAX_FILES=5, MAX_ATT_SIZE=15*1024*1024;
+  const MAX_FILES=5, MAX_DOC_SIZE=15*1024*1024, MAX_IMG_SIZE=40*1024*1024;
   const attachBtn=$('#attachBtn'), chatFile=$('#chatFile');
   attachBtn.onclick=()=>chatFile.click();
+  const isImageFile=f=>/^image\//i.test(f.type||'')||/\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i.test(f.name);
+  const fileToBase64=f=>new Promise((res,rej)=>{ const r=new FileReader(); r.onerror=()=>rej(new Error('läsfel')); r.onload=()=>res(String(r.result).split(',')[1]); r.readAsDataURL(f); });
+  // Skala ner bilder i webblasaren innan de skickas: max 1568 px och JPEG, sa de
+  // hamnar langt under Claudes bildgrans (och laddar snabbare) med god lasbarhet.
+  function resizeImageToAttachment(f){
+    return new Promise((resolve,reject)=>{
+      const url=URL.createObjectURL(f); const img=new Image();
+      img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('bildformatet gick inte att läsa (t.ex. HEIC), spara som JPG/PNG')); };
+      img.onload=()=>{
+        URL.revokeObjectURL(url);
+        const MAX=1568; const scale=Math.min(1, MAX/Math.max(img.width,img.height)||1);
+        const w=Math.max(1,Math.round(img.width*scale)), h=Math.max(1,Math.round(img.height*scale));
+        const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+        const ctx=cv.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
+        let q=0.85, dataUrl=cv.toDataURL('image/jpeg',q);
+        while(dataUrl.length>6.8*1024*1024 && q>0.4){ q-=0.15; dataUrl=cv.toDataURL('image/jpeg',q); }
+        const base=(String(f.name).replace(/\.[a-z0-9]+$/i,'')||'bild')+'.jpg';
+        resolve({ name:base, dataBase64:dataUrl.split(',')[1] });
+      };
+      img.src=url;
+    });
+  }
   chatFile.addEventListener('change', async ()=>{
     const files=[...chatFile.files]; chatFile.value='';
     for(const f of files){
       if(pendingFiles.length>=MAX_FILES){ toast('Max '+MAX_FILES+' filer åt gången.'); break; }
-      if(f.size>MAX_ATT_SIZE){ toast(f.name+' är för stor (max 15 MB).'); continue; }
+      const img=isImageFile(f);
+      if(f.size>(img?MAX_IMG_SIZE:MAX_DOC_SIZE)){ toast(f.name+' är för stor.'); continue; }
       try{
-        const dataBase64=await new Promise((res,rej)=>{ const r=new FileReader(); r.onerror=()=>rej(new Error('läsfel')); r.onload=()=>res(String(r.result).split(',')[1]); r.readAsDataURL(f); });
-        if(dataBase64) pendingFiles.push({ name:f.name, dataBase64 });
-      }catch{ toast('Kunde inte läsa '+f.name); }
+        const att = img ? await resizeImageToAttachment(f) : { name:f.name, dataBase64: await fileToBase64(f) };
+        if(att && att.dataBase64) pendingFiles.push(att);
+      }catch(err){ toast('Kunde inte läsa '+f.name+(err&&err.message?': '+err.message:'')); }
     }
     renderAttachRow(); input.focus();
   });
