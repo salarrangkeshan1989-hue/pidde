@@ -169,7 +169,7 @@ async function runClaude({ history, model, sink, env, systemText, images, attach
       throw mapAnthropicError(e);
     }
 
-    if (final.stop_reason === 'refusal') throw new Error('Claude avbojde att svara pa fragan.');
+    if (final.stop_reason === 'refusal') throw new Error('Senzai LLM avbojde att svara pa fragan.');
     // pause_turn: en langre serververktygskorning (t.ex. webbsok) pausade turen.
     // Echo:a innehallet och fortsatt sa turen gor klart — annars klipps svaret,
     // eller kastas ett falskt "tomt svar" om ingen text hann streamas.
@@ -191,15 +191,15 @@ async function runClaude({ history, model, sink, env, systemText, images, attach
   }
 
   const answer = fullText.trim();
-  if (!answer) throw new Error('Claude returnerade ett tomt svar. Prova att stalla om fragan.');
+  if (!answer) throw new Error('Senzai LLM returnerade ett tomt svar. Prova att stalla om fragan.');
   return { answer, model: useModel, tools: [...toolsUsed] };
 }
 
 function mapAnthropicError(e) {
-  if (e instanceof Anthropic.RateLimitError) return new Error('Claude: hastighets- eller kvotgrans nadd (429). Forsok igen om en stund.');
-  if (e instanceof Anthropic.AuthenticationError) return new Error('Claude: nyckeln avvisades (401). Kontrollera ANTHROPIC_API_KEY.');
-  if (e instanceof Anthropic.APIError) return new Error(`Claude svarade HTTP ${e.status || '?'}: ${String(e.message || '').slice(0, 200)}`);
-  return new Error(`Claude kunde inte nas: ${(e && e.message) || String(e)}`);
+  if (e instanceof Anthropic.RateLimitError) return new Error('Senzai LLM: hastighets- eller kvotgrans nadd (429). Forsok igen om en stund.');
+  if (e instanceof Anthropic.AuthenticationError) return new Error('Senzai LLM: nyckeln avvisades (401). Kontrollera AI-konfigurationen.');
+  if (e instanceof Anthropic.APIError) return new Error(`Senzai LLM svarade HTTP ${e.status || '?'}: ${String(e.message || '').slice(0, 200)}`);
+  return new Error(`Senzai LLM kunde inte nas: ${(e && e.message) || String(e)}`);
 }
 
 /* ── OpenAI (forberett, icke-streamad, utan webbsok) ─────────────────────── */
@@ -256,6 +256,6 @@ export async function runChat({ history, provider, model, sink, env = process.en
   const useProvider = provider === 'openai' && hasOpenAI(env) ? 'openai' : 'claude';
   // Bildvision stods pa Claude-vagen; OpenAI-vagen tar bara text.
   if (useProvider === 'openai') return runOpenAI({ history, model, sink, env, systemText });
-  if (!hasAnthropic(env)) throw new Error('AI-motorn ar inte konfigurerad — satt ANTHROPIC_API_KEY i miljon.');
+  if (!hasAnthropic(env)) throw new Error('AI-motorn (Senzai LLM) ar inte konfigurerad an.');
   return runClaude({ history, model, sink, env, systemText, images, attachmentsText });
 }

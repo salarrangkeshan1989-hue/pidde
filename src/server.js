@@ -260,6 +260,6 @@ app.use((err, req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
   const p = providersStatus(process.env);
   console.log(`Pidde lyssnar pa 0.0.0.0:${PORT}`);
-  console.log(`  motor: ${p.anthropic ? 'Claude ' + p.models.claude : (p.openai ? 'OpenAI ' + p.models.openai : 'INGEN — satt ANTHROPIC_API_KEY')}`);
+  console.log(`  motor: ${p.anthropic ? 'Senzai LLM' : (p.openai ? 'Senzai LLM (openai-lage)' : 'INGEN — satt ANTHROPIC_API_KEY')}`);
   console.log(`  webbsok: ${p.web ? 'pa' : 'av'} | konsoldata: ${p.console ? 'kopplad' : 'ej kopplad'}`);
 });

@@ -9,16 +9,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;450;500;600&display=swap" rel="stylesheet" />
 <style>
   :root{
-    --bg:#f4f1ea; --bg2:#efe9dd; --panel:#fffdf8; --panel2:#faf6ee; --ink:#20232a; --muted:#6b6f78;
-    --line:#e6e0d3; --line2:#efe9dd; --blue:#1e78c8; --blue-deep:#155a99; --ring:rgba(30,120,200,.26);
-    --accent:#e9873f; --user:#1e78c8; --ok:#3aae6a; --warn:#e0a53b; --off:#b9b3a6;
-    --shadow-lg:0 24px 70px -30px rgba(40,44,54,.45); --shadow-sm:0 6px 20px -12px rgba(40,44,54,.4);
-  }
-  @media (prefers-color-scheme:dark){
-    :root{ --bg:#15161a; --bg2:#101115; --panel:#1d1f25; --panel2:#232630; --ink:#f2efe8; --muted:#9aa0ab;
-      --line:#2c2f37; --line2:#262932; --blue:#5aa9ea; --blue-deep:#3f86c9; --ring:rgba(90,169,234,.3);
-      --accent:#e6944f; --user:#2f6fb0; --ok:#49c07d; --warn:#e6b455; --off:#4a4d57;
-      --shadow-lg:0 30px 80px -34px rgba(0,0,0,.75); --shadow-sm:0 8px 24px -14px rgba(0,0,0,.6); }
+    color-scheme:dark;
+    --bg:#15161a; --bg2:#101115; --panel:#1d1f25; --panel2:#232630; --ink:#f2efe8; --muted:#9aa0ab;
+    --line:#2c2f37; --line2:#262932; --blue:#5aa9ea; --blue-deep:#3f86c9; --ring:rgba(90,169,234,.3);
+    --accent:#e6944f; --user:#2f6fb0; --ok:#49c07d; --warn:#e6b455; --off:#4a4d57;
+    --shadow-lg:0 30px 80px -34px rgba(0,0,0,.75); --shadow-sm:0 8px 24px -14px rgba(0,0,0,.6);
   }
   *{box-sizing:border-box}
   html,body{height:100%;margin:0}
@@ -232,8 +227,8 @@
           <div class="brand-name">Pidde</div>
           <div class="brand-sub">Din operativa assistent</div>
         </div>
-        <div class="status" id="dataStatus" title="Koppling till NEXUS-konsolen">
-          <span class="dot" id="dataDot"></span><span id="dataLabel">Konsoldata</span>
+        <div class="status" id="dataStatus" title="Senzai LLM, Senzums egna AI">
+          <span class="dot" id="dataDot"></span><span id="dataLabel">Senzai LLM</span>
         </div>
       </div>
       <button class="new-btn" id="newChat">＋ Nytt samtal</button>
@@ -386,14 +381,13 @@
       if(cfg.providers.defaultProvider) state.provider=cfg.providers.defaultProvider; }catch{}
     $('#whoName').textContent = state.user.name || state.user.username;
     setupModelSeg();
-    setDataDot(state.consoleConfigured ? 'warn' : 'off', state.consoleConfigured ? 'Konsoldata' : 'Konsoldata ej kopplad');
-    if(state.consoleConfigured) checkConsole();
+    const online = !!(state.providers && state.providers.anthropic);
+    setDataDot(online ? 'ok' : 'warn', online ? 'Senzai LLM online' : 'Senzai LLM ej ansluten');
     await loadThreads();
     renderEmpty();
   }
 
   function setDataDot(cls, label){ const d=$('#dataDot'); d.className='dot'+(cls?' '+cls:''); $('#dataLabel').textContent=label; }
-  async function checkConsole(){ try{ const h=await jget('/api/console/health'); if(h.ok) setDataDot('ok','Konsoldata ansluten'); else setDataDot('warn','Konsoldata: inloggning nekad'); }catch{} }
 
   function setupModelSeg(){
     const seg=$('#modelSeg');
@@ -697,18 +691,20 @@
   function renderStatus(){
     const p=state.providers||{}; const list=$('#statusList'); list.innerHTML='';
     const rows=[
-      ['Motor', p.anthropic?('Claude ('+((p.models&&p.models.claude)||'')+')'):'ej konfigurerad', p.anthropic?'ok':'off'],
-      ['OpenAI', p.openai?'aktiv':'ej konfigurerad (vaxlaren tands nar nyckeln finns)', p.openai?'ok':'off'],
-      ['Webbsok', p.web?'pa':'av', p.web?'ok':'off'],
-      ['Konsoldata', state.consoleConfigured?'kopplad':'ej kopplad', state.consoleConfigured?'ok':'off'],
+      ['Drivs av', 'Senzai LLM, Senzums egna AI', p.anthropic?'ok':'off'],
+      ['Webbsök', p.web?'på':'av', p.web?'ok':'off'],
+      ['Konsoldata', state.consoleConfigured?'kollar…':'ej kopplad', state.consoleConfigured?'ok':'off'],
     ];
+    let cMeta=null, cDot=null;
     for(const [k,v,s] of rows){
       const it=el('div','item'); const top=el('div','it-top');
       const left=el('div'); const ti=el('div','it-title'); ti.textContent=k; const meta=el('div','it-meta'); meta.textContent=v;
       left.append(ti,meta);
       const dot=el('span','dot '+(s==='ok'?'ok':''));
       top.append(left,dot); it.appendChild(top); list.appendChild(it);
+      if(k==='Konsoldata'){ cMeta=meta; cDot=dot; }
     }
+    if(state.consoleConfigured && cMeta){ jget('/api/console/health').then(h=>{ cMeta.textContent=h.ok?'ansluten':'inloggning nekad'; cDot.className='dot '+(h.ok?'ok':'warn'); }).catch(()=>{ cMeta.textContent='kunde inte kontrollera'; }); }
   }
   $('#savePw').onclick=async()=>{ const cur=$('#pwCurrent').value, nxt=$('#pwNext').value; const p=$('#pwMsg');
     try{ await jsend('/api/password','POST',{current:cur,next:nxt}); p.className='pmsg ok'; p.textContent='Losenordet bytt'; $('#pwCurrent').value='';$('#pwNext').value=''; }catch(e){ p.className='pmsg bad'; p.textContent=e.message; } };
