@@ -18,6 +18,7 @@ import { buildSystem, SAVE_MEMORY_TOOL } from './persona.js';
 import { senzumData, SENZUM_DATA_TOOL, hasConsole } from './console.js';
 import { searchKnowledge, SEARCH_KNOWLEDGE_TOOL } from './knowledge.js';
 import { addFact, memoryDigest as getMemoryDigest } from './store.js';
+import { createPptx, createXlsx, createDocx, CREATE_PPTX_TOOL, CREATE_XLSX_TOOL, CREATE_DOCX_TOOL } from './documents.js';
 
 const DEFAULT_CLAUDE = 'claude-sonnet-5';
 const DEFAULT_OPENAI = 'gpt-5.4-mini';
@@ -48,17 +49,20 @@ export function providersStatus(env = process.env) {
   };
 }
 
-const CLIENT_TOOLS = [SENZUM_DATA_TOOL, SEARCH_KNOWLEDGE_TOOL, SAVE_MEMORY_TOOL];
+const CLIENT_TOOLS = [SENZUM_DATA_TOOL, SEARCH_KNOWLEDGE_TOOL, SAVE_MEMORY_TOOL, CREATE_PPTX_TOOL, CREATE_XLSX_TOOL, CREATE_DOCX_TOOL];
 
 function statusForTool(name) {
   if (name === 'senzum_data') return 'Hamtar siffrorna ur konsolen...';
   if (name === 'search_knowledge') return 'Bladdrar i kunskapsbasen...';
   if (name === 'save_memory') return 'Lagger det pa minnet...';
   if (name === 'web_search') return 'Soker pa webben...';
+  if (name === 'create_pptx') return 'Bygger presentationen...';
+  if (name === 'create_xlsx') return 'Satter ihop kalkylarket...';
+  if (name === 'create_docx') return 'Skriver dokumentet...';
   return 'Tanker...';
 }
 
-async function executeClientTool(name, input, env) {
+async function executeClientTool(name, input, env, sink) {
   const inp = input || {};
   if (name === 'senzum_data') return senzumData(inp, env);
   if (name === 'search_knowledge') {
@@ -72,6 +76,13 @@ async function executeClientTool(name, input, env) {
     addFact(f);
     return 'Sparat i minnet: ' + f;
   }
+  if (name === 'create_pptx' || name === 'create_xlsx' || name === 'create_docx') {
+    const fn = name === 'create_pptx' ? createPptx : name === 'create_xlsx' ? createXlsx : createDocx;
+    const r = await fn(inp);
+    if (r.error) return 'Kunde inte skapa filen: ' + r.error;
+    if (typeof sink === 'function') sink({ type: 'file', name: r.file.name, url: r.file.url });
+    return `Filen "${r.file.name}" ar skapad och redo att laddas ner (nedladdningsknappen visas for anvandaren i chatten). Berätta kort och varmt att den ar klar. Hitta INTE pa nagon annan lank.`;
+  }
   return `Okant verktyg: ${name}.`;
 }
 
@@ -83,13 +94,28 @@ function prepareHistory(history) {
 }
 
 /* ── Claude (streamad) ───────────────────────────────────────────────────── */
-async function runClaude({ history, model, sink, env, systemText }) {
+async function runClaude({ history, model, sink, env, systemText, images, attachmentsText }) {
   const apiKey = clean(env.ANTHROPIC_API_KEY);
   const client = new Anthropic({ apiKey, timeout: 90_000, maxRetries: 2 });
   const useModel = model || clean(env.ANTHROPIC_MODEL) || DEFAULT_CLAUDE;
   const system = [{ type: 'text', text: systemText, cache_control: { type: 'ephemeral' } }];
   const msgs = prepareHistory(history);
   if (!msgs.length) throw new Error('Ingen fraga skickades.');
+  // Fast bifogad fil-text (full, otruncerad) och/eller bilder pa den SENASTE
+  // anvandarturen. Filtexten laggs till efter historik-trunkeringen sa hela
+  // dokumentet nar modellen just den har turen; bilder gar till Claudes syn.
+  const hasImg = Array.isArray(images) && images.length;
+  const attach = (attachmentsText || '').trim();
+  if (hasImg || attach) {
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === 'user') {
+        const fullText = attach ? attach + '\n\n' + msgs[i].content : msgs[i].content;
+        const imgParts = hasImg ? images.map((im) => ({ type: 'image', source: { type: 'base64', media_type: im.media_type, data: im.data } })) : [];
+        msgs[i] = { role: 'user', content: [...imgParts, { type: 'text', text: fullText }] };
+        break;
+      }
+    }
+  }
 
   const useWeb = webWanted(env) && !webUnavailable;
   const toolsFull = useWeb ? [...CLIENT_TOOLS, WEB_TOOL] : [...CLIENT_TOOLS];
@@ -156,7 +182,7 @@ async function runClaude({ history, model, sink, env, systemText }) {
     for (const block of final.content) {
       if (block.type !== 'tool_use') continue; // server_tool_use (webbsok) ar redan lost
       let out;
-      try { out = await executeClientTool(block.name, block.input || {}, env); }
+      try { out = await executeClientTool(block.name, block.input || {}, env, sink); }
       catch (e) { out = `Fel nar ${block.name} kordes: ${e.message}`; }
       results.push({ type: 'tool_result', tool_use_id: block.id, content: String(out || '(tomt resultat)') });
     }
@@ -201,7 +227,7 @@ async function runOpenAI({ history, model, sink, env, systemText }) {
         sink({ type: 'status', text: statusForTool(call.function.name) });
         let args = {}; try { args = JSON.parse(call.function.arguments || '{}'); } catch { /* tom */ }
         let out;
-        try { out = await executeClientTool(call.function.name, args, env); }
+        try { out = await executeClientTool(call.function.name, args, env, sink); }
         catch (e) { out = `Fel: ${e.message}`; }
         messages.push({ role: 'tool', tool_call_id: call.id, content: String(out || '') });
       }
@@ -219,7 +245,7 @@ async function runOpenAI({ history, model, sink, env, systemText }) {
  * Huvudingang. history = [{role, content}]. sink(event) far {type:'delta'|'status'|...}.
  * Returnerar { answer, model, tools }.
  */
-export async function runChat({ history, provider, model, sink, env = process.env, userName = 'VD', firstTime = false }) {
+export async function runChat({ history, provider, model, sink, env = process.env, userName = 'VD', firstTime = false, images = [], attachmentsText = '' }) {
   const systemText = buildSystem({
     memoryDigest: getMemoryDigest(),
     userName,
@@ -228,7 +254,8 @@ export async function runChat({ history, provider, model, sink, env = process.en
     hasWeb: webWanted(env) && hasAnthropic(env) && !webUnavailable,
   });
   const useProvider = provider === 'openai' && hasOpenAI(env) ? 'openai' : 'claude';
+  // Bildvision stods pa Claude-vagen; OpenAI-vagen tar bara text.
   if (useProvider === 'openai') return runOpenAI({ history, model, sink, env, systemText });
   if (!hasAnthropic(env)) throw new Error('AI-motorn ar inte konfigurerad — satt ANTHROPIC_API_KEY i miljon.');
-  return runClaude({ history, model, sink, env, systemText });
+  return runClaude({ history, model, sink, env, systemText, images, attachmentsText });
 }

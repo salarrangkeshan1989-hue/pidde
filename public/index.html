@@ -148,6 +148,23 @@
     display:flex;align-items:center;justify-content:center;transition:background .15s,transform .05s}
   .send:hover{background:var(--blue-deep)}.send:active{transform:translateY(1px)}
   .send:disabled{background:var(--off);cursor:default}
+  .attachbtn{width:36px;height:40px;border:0;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;flex:none;border-radius:10px;transition:color .15s,background .15s}
+  .attachbtn:hover{color:var(--blue);background:var(--panel2)}
+  .attachbtn svg{width:19px;height:19px}
+  .attachrow{display:flex;flex-wrap:wrap;gap:7px;max-width:760px;margin:0 auto;padding:0 22px 8px}
+  .attachrow:empty{display:none}
+  .attach-chip{display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:6px 8px 6px 11px;font-size:12px;color:var(--ink);max-width:230px;box-shadow:var(--shadow-sm)}
+  .attach-chip .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .attach-chip .x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0 2px;flex:none}
+  .attach-chip .x:hover{color:#c0392b}
+  .msg .att{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;justify-content:flex-end}
+  .att-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.2);border-radius:8px;padding:3px 9px;font-size:11.5px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dlcard{display:inline-flex;align-items:center;gap:11px;margin-top:12px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 14px 10px 11px;text-decoration:none;color:var(--ink);max-width:320px;transition:border-color .15s,transform .05s}
+  .dlcard:hover{border-color:var(--blue)}.dlcard:active{transform:translateY(1px)}
+  .dlcard .ic{width:36px;height:36px;border-radius:9px;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none;letter-spacing:.3px}
+  .dlcard .info{min-width:0}
+  .dlcard .fn{font-weight:600;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dlcard .dl{font-size:11.5px;color:var(--muted);margin-top:1px}
   .chint{max-width:760px;margin:7px auto 0;padding:0 24px;color:var(--muted);font-size:11.5px;display:flex;justify-content:space-between;gap:10px}
   .modelpill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:20px;padding:2px 4px 2px 10px;background:var(--panel)}
   .modelpill span{font-size:11.5px;color:var(--muted)}
@@ -247,10 +264,15 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
             <span class="vlabel">Prata med Pidde</span>
           </button>
+          <div class="attachrow" id="attachRow"></div>
           <div class="cinner">
+            <button class="attachbtn" id="attachBtn" type="button" aria-label="Bifoga fil" title="Bifoga fil (Word, PDF, PowerPoint, Excel, bild)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
             <textarea id="input" rows="1" placeholder="Dela dagens utmaning med Pidde..." autofocus></textarea>
             <button class="send" id="send" aria-label="Skicka">➤</button>
           </div>
+          <input type="file" id="chatFile" multiple accept=".txt,.md,.csv,.json,.docx,.pdf,.pptx,.xlsx,.png,.jpg,.jpeg,.webp,.gif" hidden />
         </div>
         <div class="chint">
           <span>Enter skickar · Shift+Enter ny rad</span>
@@ -407,7 +429,10 @@
       state.threadId=id; closeSide();
       $('#topTitle').textContent=thread.title||'Pidde';
       const chat=$('#chat'); chat.innerHTML=''; const wrap=el('div','wrap'); chat.appendChild(wrap);
-      for(const m of thread.messages){ wrap.appendChild(m.role==='user'?userMsg(m.content):piddeMsg(md(m.content))); }
+      for(const m of thread.messages){
+        if(m.role==='user'){ wrap.appendChild(userMsg(m.content)); }
+        else{ const pm=piddeMsg(md(m.content)); if(Array.isArray(m.files)&&m.files.length){ const bub=pm.querySelector('.bubble'); m.files.forEach(f=>bub.appendChild(dlCard(f))); } wrap.appendChild(pm); }
+      }
       scrollDown(); await loadThreads();
     }catch{}
   }
@@ -437,7 +462,18 @@
     box.innerHTML='<img class="face" src="/pidde-avatar.webp" alt="Pidde"><div class="greet">'+esc(g)+'<small>'+esc(sub)+'</small></div>';
     box.appendChild(makeChips()); chat.appendChild(box);
   }
-  function userMsg(text){ const m=el('div','msg user'); const b=el('div','bubble'); b.textContent=text; m.appendChild(b); return m; }
+  function userMsg(text, atts){
+    const m=el('div','msg user'); const b=el('div','bubble');
+    if(text) b.textContent=text;
+    if(Array.isArray(atts)&&atts.length){ const row=el('div','att'); atts.forEach(a=>{ const bd=el('span','att-badge'); bd.textContent='📎 '+a.name; bd.title=a.name; row.appendChild(bd); }); b.appendChild(row); }
+    m.appendChild(b); return m;
+  }
+  function dlCard(file){
+    const a=el('a','dlcard'); a.href=file.url; a.setAttribute('download',''); a.title='Ladda ner '+file.name;
+    const ic=el('div','ic'); ic.textContent=(String(file.name).split('.').pop()||'FIL').toUpperCase().slice(0,4);
+    const info=el('div','info'); const fn=el('div','fn'); fn.textContent=file.name; const dl=el('div','dl'); dl.textContent='Klicka för att ladda ner';
+    info.append(fn,dl); a.append(ic,info); return a;
+  }
   function piddeMsg(html){
     const m=el('div','msg pidde'); const av=avatar('av face'); const b=el('div','bubble'); b.innerHTML=html;
     m.append(av,b); return m;
@@ -447,13 +483,14 @@
   /* ── send + stream ── */
   async function send(){
     if(state.streaming) return;
-    const inp=$('#input'); const text=inp.value.trim(); if(!text) return;
-    inp.value=''; autogrow();
+    const inp=$('#input'); const text=inp.value.trim();
+    const atts=pendingFiles.slice(); if(!text && !atts.length) return;
+    inp.value=''; autogrow(); pendingFiles=[]; renderAttachRow();
     const chipsLeft=$('#chat .chips'); if(chipsLeft) chipsLeft.remove(); // dolj startforslag nar samtalet borjar
     // switch from empty state to a wrap if needed
     let wrap=$('#chat .wrap');
     if(!wrap){ $('#chat').innerHTML=''; wrap=el('div','wrap'); $('#chat').appendChild(wrap); }
-    wrap.appendChild(userMsg(text));
+    wrap.appendChild(userMsg(text, atts));
     // pidde bubble with typing
     const m=el('div','msg pidde'); const av=avatar('av face'); const b=el('div','bubble');
     const status=el('div','status-line'); status.innerHTML='<span class="typing"><i></i><i></i><i></i></span>';
@@ -480,7 +517,7 @@
     const kick=()=>{ if(raf==null) raf=requestAnimationFrame(frame); };
     try{
       const res=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},
-        body:JSON.stringify({threadId:state.threadId,message:text,provider:state.provider})});
+        body:JSON.stringify({threadId:state.threadId,message:text,provider:state.provider,attachments:atts.map(a=>({name:a.name,dataBase64:a.dataBase64}))})});
       if(res.status===401){ location.replace('/login'); return; }
       if(!res.ok || !res.body){ const d=await res.json().catch(()=>({})); throw new Error(d.error||'Kunde inte svara.'); }
       const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='';
@@ -494,6 +531,7 @@
           if(ev.type==='thread'){ if(ev.id) state.threadId=ev.id; }
           else if(ev.type==='status'){ status.innerHTML='<span class="dot warn" style="animation:breathe 1.4s infinite"></span>'+esc(ev.text); status.style.display='flex'; if(nearBottom()) chatEl.scrollTop=chatEl.scrollHeight; }
           else if(ev.type==='delta'){ target+=ev.text; status.style.display='none'; kick(); }
+          else if(ev.type==='file'){ status.style.display='none'; b.appendChild(dlCard({name:ev.name,url:ev.url})); if(nearBottom()) chatEl.scrollTop=chatEl.scrollHeight; }
           else if(ev.type==='done'){ ended=true; kick(); status.style.display='none'; state.onboarded=true;
             if(ev.title) $('#topTitle').textContent=ev.title; loadThreads(); }
           else if(ev.type==='error'){ errored=true; ended=true; if(raf!=null){cancelAnimationFrame(raf);raf=null;}
@@ -512,6 +550,34 @@
   input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } });
   $('#send').onclick=send;
   $('#newChat').onclick=()=>{ renderEmpty(); closeSide(); input.focus(); loadThreads(); };
+
+  /* ── bifoga filer ── */
+  let pendingFiles=[];
+  const MAX_FILES=5, MAX_ATT_SIZE=15*1024*1024;
+  const attachBtn=$('#attachBtn'), chatFile=$('#chatFile');
+  attachBtn.onclick=()=>chatFile.click();
+  chatFile.addEventListener('change', async ()=>{
+    const files=[...chatFile.files]; chatFile.value='';
+    for(const f of files){
+      if(pendingFiles.length>=MAX_FILES){ toast('Max '+MAX_FILES+' filer åt gången.'); break; }
+      if(f.size>MAX_ATT_SIZE){ toast(f.name+' är för stor (max 15 MB).'); continue; }
+      try{
+        const dataBase64=await new Promise((res,rej)=>{ const r=new FileReader(); r.onerror=()=>rej(new Error('läsfel')); r.onload=()=>res(String(r.result).split(',')[1]); r.readAsDataURL(f); });
+        if(dataBase64) pendingFiles.push({ name:f.name, dataBase64 });
+      }catch{ toast('Kunde inte läsa '+f.name); }
+    }
+    renderAttachRow(); input.focus();
+  });
+  function renderAttachRow(){
+    const row=$('#attachRow'); row.innerHTML='';
+    pendingFiles.forEach((f,idx)=>{
+      const c=el('div','attach-chip');
+      const n=el('span','n'); n.textContent=f.name; n.title=f.name;
+      const x=el('button','x'); x.type='button'; x.textContent='✕'; x.title='Ta bort';
+      x.onclick=()=>{ pendingFiles.splice(idx,1); renderAttachRow(); };
+      c.append(n,x); row.appendChild(c);
+    });
+  }
 
   /* ── Prata med Pidde (rost -> text -> skicka) ── */
   let recog=null, listening=false;

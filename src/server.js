@@ -25,6 +25,7 @@ import {
 import { listDocs, addDoc, deleteDoc, extractText } from './knowledge.js';
 import { runChat, providersStatus } from './llm.js';
 import { consoleHealth, hasConsole } from './console.js';
+import { extractAttachment, isImage, imageMediaType, getDownload, DOWNLOAD_MIME } from './documents.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(__dirname, '..', 'public');
@@ -38,7 +39,7 @@ app.set('trust proxy', 1);
 // Stor JSON bara pa kunskaps-uppladdning (base64-kodad fil); liten overallt annars.
 const bigJson = express.json({ limit: '30mb' });
 const smallJson = express.json({ limit: '2mb' });
-app.use((req, res, next) => (req.path === '/api/knowledge/upload' ? bigJson : smallJson)(req, res, next));
+app.use((req, res, next) => (req.path === '/api/knowledge/upload' || req.path === '/api/chat' ? bigJson : smallJson)(req, res, next));
 
 const str = (v) => (v == null ? '' : String(v));
 // req.ip respekterar 'trust proxy' (klientens riktiga IP bakom Railways proxy).
@@ -142,13 +143,38 @@ app.post('/api/chat', requireAuth, async (req, res) => {
   const me = req.user;
   const b = req.body || {};
   const text = str(b.message).trim();
-  if (!text) return res.status(400).json({ error: 'Tomt meddelande.' });
+
+  // Bifogade filer: bilder gar till Claudes syn, dokument lases till text.
+  const attachments = Array.isArray(b.attachments) ? b.attachments.slice(0, 5) : [];
+  const images = [];
+  const docBlocks = [];
+  const attachNames = [];
+  for (const a of attachments) {
+    const name = str(a && a.name).slice(0, 140);
+    if (!name || !(a && a.dataBase64)) continue;
+    let buf; try { buf = Buffer.from(str(a.dataBase64), 'base64'); } catch { continue; }
+    if (!buf.length) continue;
+    attachNames.push(name);
+    if (isImage(name)) {
+      images.push({ media_type: imageMediaType(name), data: str(a.dataBase64) });
+    } else {
+      const { text: extracted, error } = await extractAttachment(buf, name);
+      docBlocks.push(error ? `[BIFOGAD FIL: ${name}] (kunde inte lasa: ${error})` : `[BIFOGAD FIL: ${name}]\n${str(extracted).slice(0, 60000)}\n[SLUT: ${name}]`);
+    }
+  }
+  if (!text && !attachNames.length) return res.status(400).json({ error: 'Tomt meddelande.' });
+
+  const userText = text || 'Ta en titt pa den bifogade filen och berätta vad du ser.';
+  const attachmentsText = docBlocks.join('\n\n'); // full fil-text, nar modellen just den har turen
+  // I traden lagras instruktionen + en kompakt notis om filerna (inte hela texten,
+  // sa historiken halls latt). Sjalva innehallet gar via attachmentsText.
+  const storedUser = attachNames.length ? `${userText}\n\n[Bifogade filer: ${attachNames.join(', ')}]` : userText;
 
   const existing = b.threadId ? getThread(str(b.threadId)) : null;
   const createdNow = !existing; // for att kunna stada bort en tom trad om svaret misslyckas
   const thread = existing || createThread('');
   const isFirst = (thread.messages || []).length === 0;
-  const history = [...(thread.messages || []).map((m) => ({ role: m.role, content: m.content })), { role: 'user', content: text }];
+  const history = [...(thread.messages || []).map((m) => ({ role: m.role, content: m.content })), { role: 'user', content: userText }];
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
@@ -160,27 +186,42 @@ app.post('/api/chat', requireAuth, async (req, res) => {
   // fyras sa fort bodyn ar forbrukad och skulle kvava svaret innan det borjat).
   let closed = false;
   res.on('close', () => { closed = true; });
-  const send = (ev) => { if (!closed) { try { res.write(`data: ${JSON.stringify(ev)}\n\n`); } catch { /* stangd */ } } };
+  const files = []; // filer Pidde skapat under turen (fangas ur 'file'-events)
+  const send = (ev) => {
+    if (ev && ev.type === 'file') files.push({ name: ev.name, url: ev.url });
+    if (!closed) { try { res.write(`data: ${JSON.stringify(ev)}\n\n`); } catch { /* stangd */ } }
+  };
 
   send({ type: 'thread', id: thread.id, title: thread.title });
   try {
     const firstTime = !isOnboarded(); // allra forsta samtalet -> Pidde presenterar sig
-    const { answer, model, tools } = await runChat({ history, provider: str(b.provider), model: str(b.model), sink: send, env: process.env, userName: firstName(me.name || me.username), firstTime });
+    const { answer, model, tools } = await runChat({ history, provider: str(b.provider), model: str(b.model), sink: send, env: process.env, userName: firstName(me.name || me.username), firstTime, images, attachmentsText });
     // Append bara det nya utbytet (las-modifiera-skriv mot aktuell disk), sa parallella
     // sandningar mot samma trad inte skriver over varandra.
     appendThreadMessages(thread.id, [
-      { role: 'user', content: text, ts: nowISO() },
-      { role: 'assistant', content: answer, ts: nowISO(), model, tools },
-    ], isFirst ? titleFrom(text) : undefined);
+      { role: 'user', content: storedUser, ts: nowISO() },
+      { role: 'assistant', content: answer, ts: nowISO(), model, tools, files },
+    ], isFirst ? titleFrom(text || attachNames[0] || 'Bifogad fil') : undefined);
     if (firstTime) markOnboarded();
     const saved = getThread(thread.id);
-    send({ type: 'done', model, tools, title: saved ? saved.title : thread.title, threadId: thread.id });
+    send({ type: 'done', model, tools, files, title: saved ? saved.title : thread.title, threadId: thread.id });
   } catch (e) {
     // Misslyckades svaret pa en nyss skapad trad: ta bort den tomma spoktraden.
     if (createdNow) { try { deleteThread(thread.id); } catch { /* ignore */ } }
     send({ type: 'error', message: (e && e.message) || String(e) });
   }
   if (!closed) res.end();
+});
+
+/* ── nedladdning av filer Pidde skapat ───────────────────────────────────── */
+app.get('/api/download/:id', requireAuth, (req, res) => {
+  const dl = getDownload(str(req.params.id));
+  if (!dl) return res.status(404).json({ error: 'Filen finns inte langre.' });
+  res.setHeader('Content-Type', DOWNLOAD_MIME[dl.ext] || 'application/octet-stream');
+  const ascii = dl.name.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '');
+  res.setHeader('Content-Disposition', `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(dl.name)}`);
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(path.resolve(dl.path));
 });
 
 /* ── statiskt (login + appen) ────────────────────────────────────────────── */

@@ -44,7 +44,9 @@ export function buildSystem({ memoryDigest = '', userName = 'VD', dateISO = '', 
   lines.push(`VERKTYG:
 - senzum_data: hamtar Senzums RIKTIGA siffror ur NEXUS-konsolen (SLA, bemanning, telefoni, ekonomi/marginal, avtal, QA, prognos). Anvand ALLTID detta nar fragan ror faktiska tal, aldrig ditt eget minne.
 - search_knowledge: soker i VD:s uppladdade dokument (org, personalhandbok, avtal, strategi). Anvand nar svaret bor komma ur foretagets egna dokument.
-- save_memory: minns nagot varaktigt (se ovan).${hasWeb ? '\n- web search: sla upp farsk information pa internet nar fragan kraver aktuella fakta utifran.' : ''}`);
+- save_memory: minns nagot varaktigt (se ovan).${hasWeb ? '\n- web search: sla upp farsk information pa internet nar fragan kraver aktuella fakta utifran.' : ''}
+- BIFOGADE FILER: nar anvandaren bifogar en fil ser du innehallet direkt i meddelandet (Word, PDF, PowerPoint, Excel, text) eller som en bild du kan se. Las igenom allt noga och gor precis det som efterfragas, t.ex. gora om en presentation, sammanfatta, analysera data.
+- create_pptx / create_xlsx / create_docx: skapar RIKTIGA, nedladdningsbara filer (PowerPoint, Excel, Word). Anvand ratt verktyg nar anvandaren vill ha en presentation, ett kalkylark, en plan/backlog eller ett dokument/en rapport, och lat anvandaren valja format. Skriv sjalv innehallet, strukturera det snyggt och professionellt, och ge filen ett begripligt namn. Nar den ar klar: berätta kort och varmt att den ar redo att laddas ner (nedladdningsknappen visas i chatten).`);
 
   lines.push(`ARLIGHET — bryts detta ar radet vardelost:
 - Varje siffra om Senzum maste komma ur senzum_data (eller search_knowledge). Rakna garna vidare (differenser, andelar), men hitta ALDRIG pa ett grundtal.${hasConsoleData ? '' : '\n- OBS: live-datan ar inte kopplad just nu. Sag det rakt ut nar en fraga kraver faktiska siffror — gissa inte.'}
